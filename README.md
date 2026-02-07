@@ -54,6 +54,3 @@ At the end of 365 days, you are evaluated on:
 
 ## License
 This project is licensed under the MIT License.
-
----
-*Created by Gemini CLI Agent*
