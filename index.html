@@ -7,7 +7,7 @@
     <style>
         :root {
             --bg-color: #0d1117;
-            --panel-bg: rgba(22, 27, 34, 0.95);
+            --panel-bg: rgba(22, 27, 34, 0.7);
             --panel-border: rgba(48, 54, 61, 0.6);
             --text-primary: #f0f6fc;
             --text-secondary: #8b949e;
@@ -603,7 +603,7 @@
         </div>
 
         <!-- REBUILT DASHBOARD MODAL -->
-        <div id="dashboard-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#0d1117; z-index:200; overflow-y:auto; padding:20px; box-sizing:border-box; pointer-events:auto; -webkit-overflow-scrolling:touch;">
+        <div id="dashboard-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:var(--panel-bg); z-index:200; overflow-y:auto; padding:20px; box-sizing:border-box; pointer-events:auto; -webkit-overflow-scrolling:touch;">
             <div style="max-width:600px; margin:0 auto;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
                     <h2 style="margin:0; font-size:24px; color:#f0f6fc;">Global Performance</h2>
@@ -633,7 +633,7 @@
         </div>
 
         <!-- REBUILT HISTORY MODAL -->
-        <div id="history-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#0d1117; z-index:200; overflow-y:auto; padding:20px; box-sizing:border-box; pointer-events:auto; -webkit-overflow-scrolling:touch;">
+        <div id="history-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:var(--panel-bg); z-index:200; overflow-y:auto; padding:20px; box-sizing:border-box; pointer-events:auto; -webkit-overflow-scrolling:touch;">
             <div style="max-width:600px; margin:0 auto;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
                     <h2 style="margin:0; font-size:24px; color:#f0f6fc;">Growth Trends</h2>
@@ -1508,29 +1508,64 @@ function openSheet(node) {
     const s = document.getElementById('selection-sheet');
     document.getElementById('sheet-title').innerText = node.name;
     document.getElementById('sheet-title').style.color = CONFIG.colors[node.type];
-    
-    // Dynamic Positioning for Landscape
-    if (window.innerWidth > window.innerHeight && window.innerHeight <= 500) {
-        // Calculate screen pos
+
+    const isMobileLandscape = window.innerWidth > window.innerHeight && window.innerHeight <= 500;
+    const isDesktop = window.innerWidth >= 900; // New breakpoint for desktop-like behavior
+
+    s.classList.remove('panel-left', 'panel-right');
+
+    if (isMobileLandscape || isDesktop) {
+        // Apply side panel styles
         const [nx, ny] = projection(node.coords);
         const tx = nx * state.transform.k + state.transform.x;
-        
-        s.classList.remove('panel-left', 'panel-right');
+
         if (tx < window.innerWidth / 2) {
             s.classList.add('panel-right'); // Node left -> Panel Right
         } else {
             s.classList.add('panel-left'); // Node right -> Panel Left
         }
-        s.style.minHeight = '100%'; // Full height side panel
-        s.style.maxHeight = '100%';
+        s.style.position = 'fixed'; // Ensure it's fixed relative to viewport
+        s.style.width = '40%';
+        s.style.minWidth = '300px';
+        s.style.top = '0';
+        s.style.height = '100vh';
+        s.style.maxHeight = '100vh';
+        s.style.borderRadius = '0';
+        s.style.zIndex = '1000';
+        s.style.transition = 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)';
+
+        // Position based on panel-left/panel-right
+        if (s.classList.contains('panel-left')) {
+            s.style.left = '0';
+            s.style.right = 'auto';
+            s.style.borderRight = '1px solid var(--panel-border)';
+            s.style.borderLeft = 'none';
+        } else {
+            s.style.right = '0';
+            s.style.left = 'auto';
+            s.style.borderLeft = '1px solid var(--panel-border)';
+            s.style.borderRight = 'none';
+        }
     } else {
-        s.classList.remove('panel-left', 'panel-right');
-        // Portrait / Default
-        s.style.minHeight = '50vh'; // Ensure it covers at least half screen
+        // Apply bottom panel styles (Portrait mobile and small tablets)
+        s.style.position = 'absolute'; // Reset position
+        s.style.width = '100%';
+        s.style.minWidth = 'auto'; // Reset min-width
+        s.style.top = 'auto'; // Reset top
+        s.style.height = 'auto'; // Reset height
         s.style.maxHeight = '85vh';
+        s.style.borderRadius = '24px 24px 0 0';
+        s.style.zIndex = '100';
+        s.style.transition = 'transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1)';
+        s.style.left = '0';
+        s.style.right = '0';
+        s.style.bottom = '0';
+        s.style.borderTop = '1px solid var(--panel-border)';
+        s.style.borderLeft = 'none';
+        s.style.borderRight = 'none';
     }
 
-    updateSheetStats(node); 
+    updateSheetStats(node);
     renderSheetRoutes(node);
     s.classList.add('active');
 }
@@ -1993,7 +2028,8 @@ window.replayGame = () => {
     document.getElementById('end-screen').style.display = 'none';
     resetState();
     initGameLogic();
-    state.speed = 0;
+    document.getElementById('time-display').innerText = `Day ${state.day.toFixed(1)}`;
+    setSpeed(0); // Ensure UI buttons are updated to paused state
     resetZoom(); // Optional: reset camera
     updateUI();
 };
