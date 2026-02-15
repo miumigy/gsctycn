@@ -67,6 +67,7 @@
 ## 実装優先順位の提案
 
 1.  **Phase 1 (Basic Logic):** リスク管理イベント ＆ 緊急オーダー（既存の仕組みで実装可能）。
-2.  **Phase 2 (Growth):** 開発投資によるネットワーク拡大。
-3.  **Phase 3 (Complex Logic):** マルチプロダクト・BOMの導入。
-4.  **Phase 4 (Sustainability):** CO2排出量の概念と環境投資。
+2.  **Phase 2 (Visibility):** 高度な分析 ＆ 財務可視化（TCOの把握）。
+3.  **Phase 3 (Growth):** 開発投資によるネットワーク拡大。
+4.  **Phase 4 (Complex Logic):** マルチプロダクト・BOMの導入。
+5.  **Phase 5 (Sustainability):** CO2排出量の概念と環境投資。

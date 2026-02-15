@@ -67,6 +67,7 @@ Enhance BI (Business Intelligence) features to support data-driven decision-maki
 ## Proposed Implementation Phases
 
 1.  **Phase 1 (Basic Logic):** Risk Management Events & Emergency Orders (Implementable with existing systems).
-2.  **Phase 2 (Growth):** Network Expansion through Development Investment.
-3.  **Phase 3 (Complex Logic):** Introduction of Multi-Product & BOM.
-4.  **Phase 4 (Sustainability):** CO2 Emissions & Green Investment.
+2.  **Phase 2 (Visibility):** Advanced Analytics & Financial Visualization (TCO awareness).
+3.  **Phase 3 (Growth):** Network Expansion through Development Investment.
+4.  **Phase 4 (Complex Logic):** Introduction of Multi-Product & BOM.
+5.  **Phase 5 (Sustainability):** CO2 Emissions & Green Investment.
