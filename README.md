@@ -54,3 +54,8 @@ At the end of 365 days, you are evaluated on:
 
 ## License
 This project is licensed under the MIT License.
+
+## Future Roadmap
+For information on planned features and improvements to enhance SCM learning and gameplay, please refer to our enhancement plans:
+*   [Enhancement Plan (English)](ENHANCE_PLAN.md)
+*   [強化計画 (日本語)](ENHANCE_PLAN_JP.md)
