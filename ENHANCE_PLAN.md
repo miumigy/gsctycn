@@ -62,11 +62,22 @@ Enhance BI (Business Intelligence) features to support data-driven decision-maki
   - Simulate how total costs change when adjusting parameters like shipping frequency.
 - **Learning Objectives:** Total Cost of Ownership (TCO), Data-Driven Management.
 
+## 7. Game Flow: Customizable Duration & Intermediate Results
+Enhance the game progression by allowing players to set the duration and review their performance periodically.
+
+- **Game Duration Setting:**
+  - Select the game duration (e.g., 1 year, 3 years, 5 years) on the start screen.
+- **Year-by-Year Progression:**
+  - The game pauses at the end of each year to display intermediate performance reports (financials, KPIs).
+- **In-Game Year Display:**
+  - Real-time display of the current progress (e.g., "Year 2 of 5") on the main game screen.
+- **Learning Objectives:** Long-term strategic planning, performance review cycles, and target management.
+
 ---
 
 ## Proposed Implementation Phases
 
-1.  **Phase 1 (Basic Logic):** Risk Management Events & Emergency Orders (Implementable with existing systems).
+1.  **Phase 1 (Basic Logic):** Game Duration Settings, Risk Management Events & Emergency Orders (Implementable with existing systems).
 2.  **Phase 2 (Visibility):** Advanced Analytics & Financial Visualization (TCO awareness).
 3.  **Phase 3 (Growth):** Network Expansion through Development Investment.
 4.  **Phase 4 (Complex Logic):** Introduction of Multi-Product & BOM.
