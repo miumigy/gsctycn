@@ -507,7 +507,17 @@
 
 <div id="title-screen" class="overlay-screen">
     <h1>Global Supply<br>Chain Tycoon</h1>
-    <p style="color:#8b949e; margin-bottom:40px; font-size:14px;">Manage routes, control inventory, and maximize profit.</p>
+    <p style="color:#8b949e; margin-bottom:20px; font-size:14px;">Manage routes, control inventory, and maximize profit.</p>
+    
+    <div style="margin-bottom:30px; text-align:center;">
+        <p style="font-size:12px; color:var(--text-secondary); text-transform:uppercase; margin-bottom:10px;">Select Game Duration</p>
+        <div style="display:flex; gap:10px; justify-content:center;">
+            <button class="fab-btn active" id="btn-1y" onclick="setDuration(1)" style="width:60px; border-radius:8px;">1 Yr</button>
+            <button class="fab-btn" id="btn-3y" onclick="setDuration(3)" style="width:60px; border-radius:8px;">3 Yr</button>
+            <button class="fab-btn" id="btn-5y" onclick="setDuration(5)" style="width:60px; border-radius:8px;">5 Yr</button>
+        </div>
+    </div>
+    
     <button class="primary-btn" onclick="startGame()">START GAME</button>
 </div>
 
@@ -536,7 +546,7 @@
 </div>
 
 <div id="game-container">
-    <svg id="map-svg"></svg>
+    <svg id="map-svg"><g></g></svg>
     <canvas id="game-canvas"></canvas>
 
     <div id="ui-layer">
@@ -546,7 +556,7 @@
                 <div class="stat-value" id="cash-display">$100k</div>
             </div>
             <div class="stat-group" onclick="toggleHistory()" style="align-items: flex-end; cursor:pointer; pointer-events:auto;">
-                <div class="stat-label">📈 Timeline</div>
+                <div class="stat-label">📈 <span id="year-display">Year 1 / 1</span></div>
                 <div class="stat-value" id="time-display">Day 1</div>
             </div>
         </div>
@@ -656,6 +666,27 @@
                 </div>
             </div>
         </div>
+
+        <!-- YEARLY REPORT MODAL -->
+        <div id="report-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:var(--panel-bg); z-index:2500; display:none; flex-direction:column; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+            <div style="max-width:500px; width:100%; background:var(--bg-color); border:1px solid var(--panel-border); border-radius:24px; padding:32px; box-shadow: 0 20px 50px rgba(0,0,0,0.5);">
+                <h2 style="margin:0 0 8px 0; font-size:28px; color:var(--accent-blue); text-align:center;">Year <span id="report-year">1</span> Complete</h2>
+                <p style="color:var(--text-secondary); text-align:center; margin-bottom:24px;">Annual Performance Review</p>
+                
+                <div class="stats-grid" style="margin-bottom:24px;">
+                    <div class="stat-card">
+                        <div class="stat-card-label">Annual Revenue</div>
+                        <div class="stat-card-value" id="report-revenue">$0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-label">Avg. Service Level</div>
+                        <div class="stat-card-value" id="report-service">0%</div>
+                    </div>
+                </div>
+                
+                <button class="primary-btn" onclick="continueGame()" style="width:100%;">CONTINUE TO YEAR <span id="next-year">2</span></button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -663,38 +694,52 @@
 <script src="https://unpkg.com/topojson@3"></script>
 
 <script>
-// --- MAP DATA & WAYPOINTS ---
+// --- MODULE: CONSTANTS ---
 const WAYPOINTS = {
+    // Canals & Straits
     panama: { coords: [-79.5, 9.0] },
     suez: { coords: [32.5, 30.0] },
     malacca: { coords: [102.0, 2.5] },
-    capeGoodHope: { coords: [18.5, -34.5] },
     gibraltar: { coords: [-5.5, 36.0] },
-    horn: { coords: [-67.0, -56.0] },
-    hawaii: { coords: [-155, 20] },
+    canaryPass: { coords: [-18.0, 28.0] },
+    hormuz: { coords: [56.0, 26.5] },
+    babAlMandab: { coords: [43.3, 12.6] },
+    dover: { coords: [1.3, 51.1] },
+    
+    // Capes
+    capeGoodHope: { coords: [18.5, -34.5] },
+    capeHorn: { coords: [-67.0, -56.0] },
+    
+    // Hubs / Sea Regions
     sriLanka: { coords: [80.5, 6.0] },
-    taiwan: { coords: [121, 22] },
-    southChinaSea: { coords: [113, 15] },
-    westAfrica: { coords: [10.0, -5.0] },
+    taiwan: { coords: [121.5, 23.5] },
+    hawaii: { coords: [-157.8, 21.3] },
+    azores: { coords: [-25.0, 38.0] },
+    
+    // Oceanic Transit Points
     northAtlantic: { coords: [-40, 45] },
     midAtlantic: { coords: [-30, 10] },
-    southAtlantic: { coords: [-25, -25] },
-    guam: { coords: [145, 13] },
-    redSea: { coords: [43.0, 13.0] },
-    portugalCoast: { coords: [-10.0, 40.0] },
-    dover: { coords: [0.0, 50.0] }
+    southAtlantic: { coords: [-10, -20] },
+    westAfricaCoast: { coords: [8, 0] },
+    namibiaCoast: { coords: [10, -25] },
+    southChinaSea: { coords: [113, 15] },
+    atlanticMid: { coords: [-55, 28] },
+    caribbeanGate: { coords: [-65, 20] },
+    cubaPass: { coords: [-82, 23] },
+    arabianSea: { coords: [65, 15] },
+    bayOfBengal: { coords: [90, 15] }
 };
 
 const NODES_DATA = [
-    { id: 'brazil', name: 'Brazil', type: 'supply', coords: [-51, -14], production: 25, maxInventory: 3000 },
-    { id: 'sa', name: 'South Africa', type: 'supply', coords: [25, -30], production: 6 },
-    { id: 'congo', name: 'Congo', type: 'supply', coords: [21, -4], production: 18, maxInventory: 2500 },
-    { id: 'china', name: 'China', type: 'make', coords: [121, 31], capacity: 2000, processRate: 25 },
-    { id: 'india', name: 'India', type: 'make', coords: [73, 19], capacity: 1750, processRate: 20 },
-    { id: 'vietnam', name: 'Vietnam', type: 'make', coords: [108, 14], capacity: 1500, processRate: 15 },
-    { id: 'usa', name: 'USA', type: 'market', coords: [-95, 29], baseDemand: 25 },
-    { id: 'germany', name: 'Germany', type: 'market', coords: [10, 51], baseDemand: 20 },
-    { id: 'japan', name: 'Japan', type: 'market', coords: [138, 36], baseDemand: 15 }
+    { id: 'brazil', name: 'Brazil', type: 'supply', coords: [-51, -14], portCoords: [-40, -20], production: 25, maxInventory: 3000 },
+    { id: 'sa', name: 'South Africa', type: 'supply', coords: [25, -30], portCoords: [18, -34], production: 6 },
+    { id: 'congo', name: 'Congo', type: 'supply', coords: [21, -4], portCoords: [12, -6], production: 18, maxInventory: 2500 },
+    { id: 'china', name: 'China', type: 'make', coords: [121, 31], portCoords: [122, 30], capacity: 2000, processRate: 25 },
+    { id: 'india', name: 'India', type: 'make', coords: [73, 19], portCoords: [72.8, 18.9], capacity: 1750, processRate: 20 },
+    { id: 'vietnam', name: 'Vietnam', type: 'make', coords: [108, 14], portCoords: [107, 10], capacity: 1500, processRate: 15 },
+    { id: 'usa', name: 'USA', type: 'market', coords: [-95, 29], portCoords: [-90, 29], baseDemand: 25 },
+    { id: 'germany', name: 'Germany', type: 'market', coords: [10, 51], portCoords: [8, 54], baseDemand: 20 },
+    { id: 'japan', name: 'Japan', type: 'market', coords: [138, 36], portCoords: [139.7, 35.6], baseDemand: 15 }
 ];
 
 const CONFIG = {
@@ -719,6 +764,7 @@ const CONFIG = {
     }
 };
 
+// --- MODULE: STATE ---
 let state = {
     cash: CONFIG.startCash,
     day: 1.0,
@@ -729,77 +775,98 @@ let state = {
     routes: [],
     units: [],
     particles: [],
-    booms: [], // { nodeId, timeLeft, mult }
+    events: [], // Unified events: { id, type, targetId, magnitude, timeLeft, label, color, icon }
     history: { cash: [], inventory: [], days: [], demand: [], production: [] },
     totalSales: 0,
     totalLostSales: 0,
+    yearlySales: 0,
+    yearlyCashStart: CONFIG.startCash,
     selectedNodeId: null,
     lastTick: 0,
-    transform: d3.zoomIdentity
+    transform: d3.zoomIdentity,
+    uiTimer: 0,
+    durationYears: 1,
+    currentYear: 1,
+    // System Objects
+    projection: null,
+    pathGenerator: null,
+    zoomBehavior: null,
+    ctx: null,
+    width: 0,
+    height: 0
 };
 
-const svg = d3.select("#map-svg");
-const g = svg.append("g");
-const canvas = document.getElementById("game-canvas");
-const ctx = canvas.getContext("2d");
-let projection, pathGenerator, zoomBehavior;
-let width, height;
+// --- MODULE: UTILS ---
+const Utils = {
+    formatInt: n => Math.floor(n).toLocaleString(),
+    fmtCurrency: n => n >= 1e6 ? '$' + (n/1e6).toFixed(1) + 'M' : (n >= 1e3 ? '$' + (n/1e3).toFixed(0) + 'k' : '$' + Math.floor(n)),
+    getProjection: (coords) => state.projection(coords)
+};
 
+// --- MODULE: CORE ENGINE ---
 function init() {
+    state.svg = d3.select("#map-svg");
+    state.g = state.svg.select("g");
+    const canvas = document.getElementById("game-canvas");
+    state.ctx = canvas.getContext("2d");
+
     resize();
     window.addEventListener('resize', resize);
 
-    zoomBehavior = d3.zoom()
+    state.zoomBehavior = d3.zoom()
         .scaleExtent([1, 8])
         .on("zoom", (event) => {
             state.transform = event.transform;
-            g.attr("transform", state.transform);
+            state.g.attr("transform", state.transform);
             render(); 
         });
     
-    svg.call(zoomBehavior);
+    state.svg.call(state.zoomBehavior);
     
     d3.json("https://unpkg.com/world-atlas@2.0.2/countries-110m.json").then(worldData => {
         const countries = topojson.feature(worldData, worldData.objects.countries);
-                    g.selectAll("path")
-                        .data(countries.features)
-                        .enter().append("path")
-                        .attr("d", pathGenerator)
-                        .attr("fill", "#1a1f26") 
-                        .attr("stroke", "#30363d") 
-                        .attr("stroke-width", 0.5);
-        initGameLogic();
-        setSpeed(0); // Sync UI with initial paused state
+        state.g.selectAll("path")
+            .data(countries.features)
+            .enter().append("path")
+            .attr("d", state.pathGenerator)
+            .attr("fill", "#1a1f26") 
+            .attr("stroke", "#30363d") 
+            .attr("stroke-width", 0.5);
         
-        // Force hide modals on init to prevent persistence bugs
+        initGameLogic();
+        setSpeed(0); 
+        
         document.getElementById('dashboard-modal').style.display = 'none';
         document.getElementById('history-modal').style.display = 'none';
         
         requestAnimationFrame(gameLoop);
-        render(); // Draw once
+        render(); 
     });
 }
 
 function resize() {
-    renderErrorShown = false;
-    width = window.innerWidth;
-    height = window.innerHeight;
-    canvas.width = width * window.devicePixelRatio;
-    canvas.height = height * window.devicePixelRatio;
-    canvas.style.width = width + "px";
-    canvas.style.height = height + "px";
-    ctx.setTransform(1,0,0,1,0,0);
-    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    state.width = window.innerWidth;
+    state.height = window.innerHeight;
+    const canvas = document.getElementById("game-canvas");
+    canvas.width = state.width * window.devicePixelRatio;
+    canvas.height = state.height * window.devicePixelRatio;
+    canvas.style.width = state.width + "px";
+    canvas.style.height = state.height + "px";
     
-    const isPortrait = height > width;
-    const translateY = isPortrait ? height * 0.4 : height / 1.8;
+    if (state.ctx) {
+        state.ctx.setTransform(1,0,0,1,0,0);
+        state.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+    
+    const isPortrait = state.height > state.width;
+    const translateY = isPortrait ? state.height * 0.4 : state.height / 1.8;
 
-    projection = d3.geoNaturalEarth1()
-        .scale(width / 6.5)
-        .translate([width / 2, translateY]);
+    state.projection = d3.geoNaturalEarth1()
+        .scale(state.width / 6.5)
+        .translate([state.width / 2, translateY]);
         
-    pathGenerator = d3.geoPath().projection(projection);
-    g.selectAll("path").attr("d", pathGenerator);
+    state.pathGenerator = d3.geoPath().projection(state.projection);
+    if (state.g) state.g.selectAll("path").attr("d", state.pathGenerator);
 }
 
 function initGameLogic() {
@@ -810,9 +877,9 @@ function initGameLogic() {
         demand: 0,
         level: 1, 
         quality: 1.0, 
-        unitCost: n.type === 'supply' ? (n.id === 'sa' ? 4.0 : 2.0) : (n.type === 'make' ? 6.0 : 8.0), // Init with standard costs
+        unitCost: n.type === 'supply' ? (n.id === 'sa' ? 4.0 : 2.0) : (n.type === 'make' ? 6.0 : 8.0),
         phase: Math.random() * Math.PI * 2, 
-        screenPos: projection(n.coords),
+        screenPos: state.projection(n.coords),
         alert: 0
     }));
 
@@ -828,41 +895,38 @@ function initGameLogic() {
     supply.forEach(s => make.forEach(m => addRoute(s.id, m.id)));
     make.forEach(m => market.forEach(k => addRoute(m.id, k.id)));
 
-    // Game starts Paused for route selection
     state.speed = 0;
-    // Routes are inactive by default. User must toggle them.
 }
 
+// --- MODULE: NAUTICAL ENGINE ---
 function createRoute(fromNode, toNode, type) {
     let rawPoints = [];
     if (type === 'air') {
         rawPoints = [fromNode.coords, toNode.coords];
     } else {
-        rawPoints = getShipPath(fromNode.coords, toNode.coords);
+        // Use portCoords for sea lanes to avoid starting/ending inland
+        const start = fromNode.portCoords || fromNode.coords;
+        const end = toNode.portCoords || toNode.coords;
+        rawPoints = getShipPath(start, end);
     }
     
-    // High density for smooth interpolation
     const pathCoords = densifyPath(rawPoints, 0.005);
     
-    // Calculate VISUAL distance (pixels) to ensure constant visual speed.
-    // We use the global 'projection' which is set in resize() to the base scale.
     let totalVisualDist = 0;
     const segmentDists = [];
     
     for(let i=0; i<pathCoords.length-1; i++) {
-        const p1 = projection(pathCoords[i]);
-        const p2 = projection(pathCoords[i+1]);
+        const p1 = state.projection(pathCoords[i]);
+        const p2 = state.projection(pathCoords[i+1]);
         let d = 0;
         if (p1 && p2) {
             const dist = Math.hypot(p1[0]-p2[0], p1[1]-p2[1]);
-            // Filter dateline wrap-around (large jumps)
-            if (dist < width * 0.5) d = dist;
+            if (dist < state.width * 0.5) d = dist;
         }
         segmentDists.push(d);
         totalVisualDist += d;
     }
 
-    // Create normalized visual stops [0, ..., 1]
     let acc = 0;
     const visualStops = [0];
     for (const d of segmentDists) {
@@ -870,31 +934,17 @@ function createRoute(fromNode, toNode, type) {
         visualStops.push(totalVisualDist > 0 ? acc / totalVisualDist : 1);
     }
 
-    // Calculate time based on Visual Speed (pixels/sec)
-    // Arbitrary scaling to match desired game pacing
-    // Ship Speed 80 -> ~3.2 px/sec
     const speedPx = CONFIG.transport[type].speed * 0.04; 
     const travelTimeMs = (totalVisualDist / speedPx) * 1000;
 
-    // Interval Calculation: DEMAND-BASED
-    // Instead of relying on travel time (which favors short routes and starves long ones),
-    // we calculate interval to match the destination's consumption rate.
-    // Distance doesn't matter for frequency; throughput does.
-    
-    let targetDemand = 10; // Fallback
+    let targetDemand = 10; 
     if (toNode.type === 'market') targetDemand = toNode.baseDemand;
     else if (toNode.type === 'make') targetDemand = toNode.processRate;
 
     const capacity = CONFIG.transport[type].capacity;
-    // Formula: Time to consume one shipment = Capacity / Demand.
-    
-    // For Air, we want less frequency as it's premium. 
     const typeFactor = type === 'ship' ? 2.5 : 8.0; 
 
     let interval = (capacity / Math.max(1, targetDemand)) * 1000 * typeFactor;
-    
-    // Clamp to reasonable bounds (0.5d to 30d)
-    // 1 Day = 5000ms
     interval = Math.max(2500, Math.min(150000, interval));
 
     return {
@@ -934,183 +984,230 @@ function getShipPath(start, end) {
     const sLon = start[0], sLat = start[1];
     const eLon = end[0], eLat = end[1];
     
-    const isAmericas = lon => lon < -30;
-    const isEurope = (lon, lat) => lon >= -30 && lon < 50 && lat > 20;
-    const isAfrica = (lon, lat) => lon >= -20 && lon < 60 && lat <= 20;
-    const isAsia = lon => lon >= 60;
-
     const getR = (lon, lat) => {
-        if (isAmericas(lon)) return 'americas';
-        if (isEurope(lon, lat)) return 'europe';
-        if (isAfrica(lon, lat)) return 'africa';
-        if (isAsia(lon)) return 'asia';
+        if (lon < -30) return 'americas';
+        if (lon >= -30 && lon < 50 && lat > 20) return 'europe';
+        if (lon >= -20 && lon < 60 && lat <= 20) return 'africa';
+        if (lon >= 60) return 'asia';
         return 'unknown';
     };
 
-    const sR = getR(sLon, sLat);
-    const eR = getR(eLon, eLat);
+    const sR = getR(sLon, sLat), eR = getR(eLon, eLat);
     const pair = [sR, eR].sort().join('-'); 
+    const isWestAsia = lon => lon < 95;
 
-    // Asia Internal (e.g. India <-> Japan/China)
-    if (pair === 'asia-asia') {
-        const isWest = lon => lon < 95; // India side
-        const isEast = lon => lon >= 95; // East Asia side
-        
-        if ((isWest(sLon) && isEast(eLon)) || (isWest(eLon) && isEast(sLon))) {
-            let route = [WAYPOINTS.sriLanka.coords, WAYPOINTS.malacca.coords];
-            const eastPoint = sLon > eLon ? start : end;
-            
-            // East Asia bound leg
-            if (eastPoint[0] > 105) {
-                route.push(WAYPOINTS.southChinaSea.coords);
-                if (eastPoint[1] > 20) route.push(WAYPOINTS.taiwan.coords);
+        // 1. Asia <-> Asia
+        if (pair === 'asia-asia') {
+            if ((isWestAsia(sLon) && !isWestAsia(eLon)) || (!isWestAsia(sLon) && isWestAsia(eLon))) {
+                const westPoint = sLon < eLon ? start : end;
+                const eastPoint = sLon < eLon ? end : start;
+                const targetLon = eastPoint[0];
+                
+                let p = [WAYPOINTS.sriLanka.coords, WAYPOINTS.malacca.coords];
+                if (targetLon > 110) p.push(WAYPOINTS.southChinaSea.coords);
+                if (targetLon > 125) p.push(WAYPOINTS.taiwan.coords); // Only for Japan/Far East
+                
+                return sLon < eLon ? [start, ...p, end] : [start, ...p.reverse(), end];
             }
-            
-            if (sLon < eLon) return [start, ...route, end];
-            return [start, ...route.reverse(), end];
         }
-    }
-
-    // 1. Americas <-> Asia
-    if (pair === 'americas-asia') {
-        // South America (Brazil) -> Asia via Cape (Eastbound)
-        if (sLat < 0 || eLat < 0) {
-             const asianPoint = sR === 'asia' ? start : end;
-             const isFarEast = asianPoint[0] > 90; // Check if destination is East of India
-
-             let route = isFarEast
-                ? [WAYPOINTS.southAtlantic.coords, WAYPOINTS.capeGoodHope.coords, WAYPOINTS.sriLanka.coords, WAYPOINTS.malacca.coords]
-                : [WAYPOINTS.southAtlantic.coords, WAYPOINTS.capeGoodHope.coords, WAYPOINTS.sriLanka.coords];
-             
-             if (isFarEast && asianPoint[0] > 105) {
-                 route.push(WAYPOINTS.southChinaSea.coords);
-                 if (asianPoint[1] > 20) route.push(WAYPOINTS.taiwan.coords);
-             }
-
-             if (sR === 'asia') return [start, ...route.reverse(), end];
-             return [start, ...route, end];
-        } 
-        // North America -> Asia via Panama (Westbound)
-        else {
-             // Great Circle-ish route: Panama -> Hawaii -> Taiwan (Removed Guam to avoid southern detour)
-             let route = [WAYPOINTS.panama.coords, WAYPOINTS.hawaii.coords, WAYPOINTS.taiwan.coords];
-             
-             // If Asia point is West (e.g. India), extend route via Malacca
-             const asianPoint = sR === 'asia' ? start : end;
-             if (asianPoint[0] < 90) {
-                 route.push(WAYPOINTS.malacca.coords);
-                 route.push(WAYPOINTS.sriLanka.coords);
-             }
-
-             if (sR === 'asia') return [start, ...route.reverse(), end];
-             return [start, ...route, end];
-        }
-    }
-
-    // 2. Americas <-> Europe
-    if (pair === 'americas-europe') {
-        // South America -> Europe (avoid North Atlantic WP)
-        if (sLat < 0 || eLat < 0) {
-            return [start, WAYPOINTS.midAtlantic.coords, end]; 
-        }
-        return [start, WAYPOINTS.northAtlantic.coords, end];
-    }
     
-    // 3. Asia <-> Europe
+        // 2. Americas <-> Asia (e.g., India <-> USA, Brazil <-> China)
+        if (pair === 'americas-asia') {
+            const asianLon = sR === 'asia' ? sLon : eLon;
+            const americasPoint = sR === 'americas' ? start : end;
+            const isBrazil = americasPoint[1] < 0; 
+            const isNorthAm = americasPoint[1] > 0;
+            
+            if (isWestAsia(asianLon)) {
+                if (isBrazil) {
+                    let p = [WAYPOINTS.gibraltar.coords, WAYPOINTS.suez.coords, WAYPOINTS.babAlMandab.coords, WAYPOINTS.arabianSea.coords];
+                    return sR === 'americas' ? [start, ...p, end] : [start, ...p.reverse(), end];
+                } else {
+                    if (sR === 'americas') {
+                        // USA to West Asia: Cuba -> Caribbean -> Canary -> Gibraltar -> Suez
+                        let p = [WAYPOINTS.cubaPass.coords, WAYPOINTS.caribbeanGate.coords, WAYPOINTS.canaryPass.coords, WAYPOINTS.gibraltar.coords, WAYPOINTS.suez.coords, WAYPOINTS.babAlMandab.coords, WAYPOINTS.arabianSea.coords];
+                        return [start, ...p, end];
+                    } else {
+                        // West Asia to USA: Suez -> Gibraltar -> Canary -> Caribbean -> Cuba
+                        let p = [WAYPOINTS.arabianSea.coords, WAYPOINTS.babAlMandab.coords, WAYPOINTS.suez.coords, WAYPOINTS.gibraltar.coords, WAYPOINTS.canaryPass.coords, WAYPOINTS.caribbeanGate.coords, WAYPOINTS.cubaPass.coords];
+                        return [start, ...p, end];
+                    }
+                }
+            } else {
+                            if (isBrazil) {
+                                let p = [WAYPOINTS.capeGoodHope.coords, WAYPOINTS.sriLanka.coords, WAYPOINTS.malacca.coords];
+                                if (asianLon > 115) p.push(WAYPOINTS.southChinaSea.coords);
+                                if (asianLon > 130) p.push(WAYPOINTS.taiwan.coords);
+                                return sR === 'americas' ? [start, ...p, end] : [start, ...p.reverse(), end];
+                            }
+                 else {
+                    const p = [WAYPOINTS.taiwan.coords, WAYPOINTS.hawaii.coords, WAYPOINTS.panama.coords];
+                    return sR === 'asia' ? [start, ...p, end] : [start, ...p.reverse(), end];
+                }
+            }
+        }
+    
+    
+
+    // 3. Asia <-> Europe (Suez Corridor)
     if (pair === 'asia-europe') {
         const asianPoint = sR === 'asia' ? start : end;
-        // Common European leg: Suez -> Gibraltar -> Portugal -> Dover
-        const europeLeg = [WAYPOINTS.redSea.coords, WAYPOINTS.suez.coords, WAYPOINTS.gibraltar.coords, WAYPOINTS.portugalCoast.coords, WAYPOINTS.dover.coords];
+        const euroPoint = sR === 'europe' ? start : end;
+        const lon = asianPoint[0];
         
-        // If Asian point is West of Malacca (e.g. India), skip Malacca
-        if (asianPoint[0] < 95) {
-            // If West of Sri Lanka (e.g. Mumbai ~73), go direct to Red Sea
-            let route = asianPoint[0] < 79 
-                ? [...europeLeg] 
-                : [WAYPOINTS.sriLanka.coords, ...europeLeg];
-
-            if (sR === 'europe') return [start, ...route.reverse(), end];
-            return [start, ...route, end];
+        let p = [];
+        if (sR === 'asia') {
+            // Westbound: Only include waypoints that are WEST of the starting point
+            if (lon > 125) p.push(WAYPOINTS.taiwan.coords);
+            if (lon > 115) p.push(WAYPOINTS.southChinaSea.coords);
+            if (lon > 105) p.push(WAYPOINTS.malacca.coords);
+            if (lon > 85) p.push(WAYPOINTS.sriLanka.coords);
+            p.push(WAYPOINTS.arabianSea.coords);
+            p.push(WAYPOINTS.babAlMandab.coords);
+            p.push(WAYPOINTS.suez.coords);
+            p.push(WAYPOINTS.gibraltar.coords);
+            if (euroPoint[1] > 45) p.push(WAYPOINTS.dover.coords);
+            return [start, ...p, end];
+        } else {
+            // Eastbound: Only include waypoints that are WEST of the destination
+            if (sLat > 45) p.push(WAYPOINTS.dover.coords);
+            p.push(WAYPOINTS.gibraltar.coords);
+            p.push(WAYPOINTS.suez.coords);
+            p.push(WAYPOINTS.babAlMandab.coords);
+            p.push(WAYPOINTS.arabianSea.coords);
+            if (lon > 85) p.push(WAYPOINTS.sriLanka.coords);
+            if (lon > 105) p.push(WAYPOINTS.malacca.coords);
+            if (lon > 115) p.push(WAYPOINTS.southChinaSea.coords);
+            if (lon > 125) p.push(WAYPOINTS.taiwan.coords);
+            return [start, ...p, end];
         }
-        
-        let route = [WAYPOINTS.malacca.coords, WAYPOINTS.sriLanka.coords, ...europeLeg];
-        if (asianPoint[0] > 105) {
-            route.unshift(WAYPOINTS.southChinaSea.coords);
-            if (asianPoint[1] > 20) route.unshift(WAYPOINTS.taiwan.coords);
-        }
-        if (sR === 'europe') return [start, ...route.reverse(), end];
-        return [start, ...route, end];
     }
 
     // 4. Africa <-> Asia
     if (pair === 'africa-asia') {
         const asianPoint = sR === 'asia' ? start : end;
         const africanPoint = sR === 'africa' ? start : end;
-        const isFarEast = asianPoint[0] > 90;
-
-        // Basic route from Cape to Asia
-        let route = isFarEast 
-            ? [WAYPOINTS.capeGoodHope.coords, WAYPOINTS.sriLanka.coords, WAYPOINTS.malacca.coords]
-            : [WAYPOINTS.capeGoodHope.coords, WAYPOINTS.sriLanka.coords];
+        const lon = asianPoint[0];
         
-        // If starting from West/Central Africa (e.g. Congo, lat > -30), go via West Coast first
-        if (africanPoint[1] > -30) {
-            route.unshift(WAYPOINTS.westAfrica.coords);
+        let p = [];
+        if (sR === 'africa') {
+            if (start[1] > -30 && start[0] < 20) p.push(WAYPOINTS.namibiaCoast.coords);
+            if (start[1] > -33) p.push(WAYPOINTS.capeGoodHope.coords);
+            
+            // Only go to Arabian Sea if destination is West Asia (India)
+            if (isWestAsia(lon)) p.push(WAYPOINTS.arabianSea.coords);
+            
+            if (lon > 85) p.push(WAYPOINTS.sriLanka.coords);
+            if (lon > 105) p.push(WAYPOINTS.malacca.coords);
+            if (lon > 115) p.push(WAYPOINTS.southChinaSea.coords);
+            if (lon > 130) p.push(WAYPOINTS.taiwan.coords);
+            return [start, ...p, end];
+        } else {
+            if (lon > 130) p.push(WAYPOINTS.taiwan.coords);
+            if (lon > 115) p.push(WAYPOINTS.southChinaSea.coords);
+            if (lon > 105) p.push(WAYPOINTS.malacca.coords);
+            if (lon > 85) p.push(WAYPOINTS.sriLanka.coords);
+            
+            // From West Asia origins, include Arabian Sea
+            if (isWestAsia(lon)) p.push(WAYPOINTS.arabianSea.coords);
+            
+            if (end[1] > -33) p.push(WAYPOINTS.capeGoodHope.coords);
+            if (end[1] > -30 && end[0] < 20) p.push(WAYPOINTS.namibiaCoast.coords);
+            return [start, ...p, end];
         }
-
-        if (isFarEast && asianPoint[0] > 105) {
-            route.push(WAYPOINTS.southChinaSea.coords);
-            if (asianPoint[1] > 20) route.push(WAYPOINTS.taiwan.coords);
-        }
-
-        if (sR === 'asia') return [start, ...route.reverse(), end];
-        return [start, ...route, end];
     }
 
-    // 5. Africa <-> Europe
+    // 5. Americas <-> Europe
+    if (pair === 'americas-europe') {
+        const p = sLat < 0 || eLat < 0 ? [WAYPOINTS.southAtlantic.coords, WAYPOINTS.azores.coords] : [WAYPOINTS.northAtlantic.coords, WAYPOINTS.azores.coords];
+        return sR === 'americas' ? [start, ...p, end] : [start, ...p.reverse(), end];
+    }
+
+    // 6. Africa <-> Europe
     if (pair === 'africa-europe') {
-        let route = [WAYPOINTS.midAtlantic.coords, WAYPOINTS.gibraltar.coords];
-        if (sR === 'europe') return [start, ...route.reverse(), end];
-        return [start, ...route, end];
-    }
-
-    // 6. Brazil (Americas) <-> Africa
-    if (pair === 'africa-americas') {
-        return [start, end]; 
+        let p = [];
+        if (sR === 'africa') {
+            // If starting from South Africa, go to Namibia first then North
+            if (start[1] < -30) p.push(WAYPOINTS.namibiaCoast.coords);
+            p.push(WAYPOINTS.westAfricaCoast.coords);
+            p.push(WAYPOINTS.gibraltar.coords);
+            if (end[1] > 45) p.push(WAYPOINTS.dover.coords);
+            return [start, ...p, end];
+        } else {
+            if (start[1] > 45) p.push(WAYPOINTS.dover.coords);
+            p.push(WAYPOINTS.gibraltar.coords);
+            p.push(WAYPOINTS.westAfricaCoast.coords);
+            if (end[1] < -30) p.push(WAYPOINTS.namibiaCoast.coords);
+            return [start, ...p, end];
+        }
     }
 
     return [start, end];
 }
 
+// --- MODULE: ECONOMY & LOGISTICS ENGINE ---
 function gameLoop(timestamp) {
     if (!state.lastTick) state.lastTick = timestamp;
     const dt = ((timestamp - state.lastTick) / 1000) * state.speed;
     state.lastTick = timestamp;
-    if (dt > 0) { updateEconomy(dt); updateUnits(dt); updateParticles(dt); }
+    if (dt > 0) { 
+        updateEvents(dt);
+        updateEconomy(dt); 
+        updateUnits(dt); 
+        updateParticles(dt); 
+    }
     render();
     requestAnimationFrame(gameLoop);
 }
 
-// Helper for comma-separated numbers
-const formatInt = n => Math.floor(n).toLocaleString();
+function updateEvents(dt) {
+    // 1. Update existing events
+    state.events.forEach(e => e.timeLeft -= dt);
+    state.events = state.events.filter(e => e.timeLeft > 0);
+
+    // 2. Randomly trigger new events
+    if (Math.random() < 0.05 * dt) { // Approx every 20s
+        const rand = Math.random();
+        if (rand < 0.4) { // Market Spike (Positive)
+            const target = state.nodes.filter(n => n.type === 'market')[Math.floor(Math.random() * 3)];
+            if (target) {
+                state.events.push({ id: `spike-${Date.now()}`, type: 'market_spike', targetId: target.id, magnitude: 2.5, timeLeft: 15.0, label: `${target.name} Demand Spike`, color: '#ffd700', icon: '🔥' });
+                spawnParticle(state.projection(target.coords), "BOOM!", "#ffd700");
+            }
+        } else if (rand < 0.7) { // Production Crisis (Negative)
+            const target = state.nodes.filter(n => n.type === 'supply')[Math.floor(Math.random() * 3)];
+            if (target) {
+                state.events.push({ id: `disrupt-${Date.now()}`, type: 'prod_crisis', targetId: target.id, magnitude: 0.2, timeLeft: 12.0, label: `${target.name} Operation Halted`, color: '#f85149', icon: '⚠️' });
+                spawnParticle(state.projection(target.coords), "CRISIS!", "#f85149");
+            }
+        } else { // Route Disruption (Negative)
+            const activeRoutes = state.routes.filter(r => r.active);
+            if (activeRoutes.length > 0) {
+                const target = activeRoutes[Math.floor(Math.random() * activeRoutes.length)];
+                state.events.push({ id: `route-${Date.now()}`, type: 'route_clog', targetId: target.id, magnitude: 5.0, timeLeft: 10.0, label: `Logistics Congestion`, color: '#f85149', icon: '⚓' });
+            }
+        }
+    }
+}
 
 function updateEconomy(dt) {
-    if (state.day >= 365) { endGame(); return; }
+    if (state.day >= 365) { 
+        if (state.currentYear >= state.durationYears) {
+            endGame(); 
+            return; 
+        } else {
+            showYearlyReport();
+            return;
+        }
+    }
 
-    // 1 Day = 5 seconds (at 1x speed) => 0.2 days/sec
     state.day += dt * 0.2;
-    document.getElementById('time-display').innerText = `Day ${state.day.toFixed(1)}`; 
+    document.getElementById('time-display').innerText = `Day ${Math.floor(state.day)}`; 
     
-    // Record History on integer day change
     if (Math.floor(state.day) > state.lastIntegerDay) { 
         state.lastIntegerDay = Math.floor(state.day);
-        
-        // Record History
         const totalInv = state.nodes.reduce((a,n) => a + n.inventory, 0);
         const totalDemand = state.nodes.filter(n => n.type === 'market').reduce((a,n) => a + n.demand, 0);
-        
-        // Supply = Effective System Throughput
-        // It's the bottleneck between Raw Material Production and Factory Processing Capacity.
         const totalRaw = state.nodes.filter(n => n.type === 'supply').reduce((a,n) => a + n.production, 0);
         const totalFactory = state.nodes.filter(n => n.type === 'make').reduce((a,n) => a + n.processRate, 0);
         const totalProd = Math.min(totalRaw, totalFactory);
@@ -1121,96 +1218,51 @@ function updateEconomy(dt) {
         state.history.demand.push(totalDemand);
         state.history.production.push(totalProd);
         
-        // Keep last 50 points
         if (state.history.days.length > 50) {
-            state.history.days.shift();
-            state.history.cash.shift();
-            state.history.inventory.shift();
-            state.history.demand.shift();
-            state.history.production.shift();
-        }
-    }
-    
-    // Manage Booms
-    if (state.booms.length > 0) {
-        state.booms.forEach(b => b.timeLeft -= dt);
-        state.booms = state.booms.filter(b => b.timeLeft > 0);
-    } else {
-        // Chance to start a boom
-        if (Math.random() < 0.05 * dt) { // Approx once every 20 real seconds
-            const markets = state.nodes.filter(n => n.type === 'market');
-            const target = markets[Math.floor(Math.random() * markets.length)];
-            const mult = 2.5;
-            state.booms.push({ nodeId: target.id, timeLeft: 15.0, mult: mult });
-            // showNotification removed: UI updates in updateUI
-            spawnParticle(projection(target.coords), "BOOM!", "#ffd700");
+            state.history.days.shift(); state.history.cash.shift(); state.history.inventory.shift(); state.history.demand.shift(); state.history.production.shift();
         }
     }
 
     state.nodes.forEach(node => {
         if (node.alert > 0) node.alert -= dt;
-
-        const dailyToPerSec = 1.0 / 5.0; // 1 Day = 5 Seconds
+        const dailyToPerSec = 1.0 / 5.0; 
 
         if (node.type === 'supply') {
-            const prodAmount = node.production * dailyToPerSec * dt;
+            const prodEvent = state.events.find(e => e.targetId === node.id && e.type === 'prod_crisis');
+            const prodMult = prodEvent ? prodEvent.magnitude : 1.0;
+            const prodAmount = node.production * prodMult * dailyToPerSec * dt;
             const costAmount = prodAmount * (node.id === 'sa' ? 4.0 : 2.0);
             
-            // Deduct Production Cost (Mining Expenses)
             state.cash -= costAmount;
-
             node.inventory = Math.min(node.maxInventory, node.inventory + prodAmount);
             
-            // Base Production Cost (Raw Material Cost)
             const baseCost = node.id === 'sa' ? 4.0 : 2.0;
-
-            // Slowly restore quality towards 1.0 and mix in base cost
-            // We assume new production has unitCost = baseCost
             const newTotal = node.inventory; 
             const oldInv = Math.max(0, newTotal - prodAmount);
-            
-            node.quality = (oldInv * node.quality + prodAmount * 1.0) / newTotal;
-            node.unitCost = (oldInv * node.unitCost + prodAmount * baseCost) / newTotal;
+            if (newTotal > 0) {
+                node.quality = (oldInv * node.quality + prodAmount * 1.0) / newTotal;
+                node.unitCost = (oldInv * node.unitCost + prodAmount * baseCost) / newTotal;
+            }
         }
         
-        // Quality Decay for stored goods (Warehousing cost)
-        // Markets decay faster (perishable goods)
         const decayRate = node.type === 'market' ? 0.005 : 0.001;
-        if (node.inventory > 0) {
-            node.quality = Math.max(0.1, node.quality - dt * decayRate);
-        }
+        if (node.inventory > 0) node.quality = Math.max(0.1, node.quality - dt * decayRate);
 
         if (node.type === 'market') {
-            // Check for boom
-            const boom = state.booms.find(b => b.nodeId === node.id);
-            const boomMult = boom ? boom.mult : 1;
-
-            node.demand = node.baseDemand * (1 + Math.sin(node.phase + Date.now()/2000) * 0.3) * boomMult;
+            const spikeEvent = state.events.find(e => e.targetId === node.id && e.type === 'market_spike');
+            const spikeMult = spikeEvent ? spikeEvent.magnitude : 1.0;
+            node.demand = node.baseDemand * (1 + Math.sin(node.phase + Date.now()/2000) * 0.3) * spikeMult;
             
-            // FRESHNESS PRICING
-            const qualityMult = 0.2 + 2.8 * Math.pow(node.quality, 2);
-            const price = CONFIG.salePrice * qualityMult * boomMult;
-            
+            const price = CONFIG.salePrice * (0.2 + 2.8 * Math.pow(node.quality, 2)) * spikeMult;
             const sell = Math.min(node.inventory, node.demand * dailyToPerSec * dt);
             if (sell > 0) { 
-                node.inventory -= sell; 
-                state.cash += sell * price; 
-                state.totalSales += sell; // Track Volume
-                
-                // Particle color based on Profit Margin & Freshness
+                node.inventory -= sell; state.cash += sell * price; state.totalSales += sell; 
                 if (Math.random() < 0.05) {
-                     const margin = price - node.unitCost;
                      let color = node.quality > 0.8 ? '#3fb950' : (node.quality > 0.5 ? '#dbab09' : '#f85149');
-                     if (margin < 0) color = '#f85149'; // Loss is always red
-                     
-                     spawnParticle(projection(node.coords), `+$${Math.floor(sell*price)}`, color); 
+                     spawnParticle(state.projection(node.coords), `+$${Math.floor(sell*price)}`, color); 
                 }
-            }
-            else if (node.demand > 0 && node.inventory < 1) {
-                // Shortage tracking
-                const missed = node.demand * dailyToPerSec * dt;
-                state.totalLostSales += missed;
-                
+            } else if (node.demand > 0 && node.inventory < 1) {
+                state.totalLostSales += node.demand * dailyToPerSec * dt;
                 if (Math.random() < 0.02) node.alert = 3.0;
             }
         }
@@ -1219,33 +1271,22 @@ function updateEconomy(dt) {
     state.routes.forEach(route => { 
         if (route.active) { 
             let tickRate = 1.0;
+            const clogEvent = state.events.find(e => e.targetId === route.id && e.type === 'route_clog');
             const toNode = state.nodes.find(n => n.id === route.to);
             
-            // Logic: Air routes work overtime during Booms or Crises
-            if (route.type === 'air' && toNode.type === 'market') {
-                const isBooming = state.booms.some(b => b.nodeId === toNode.id);
-                const isCritical = toNode.inventory < toNode.maxInventory * 0.15;
-                
-                if (isBooming) tickRate = 20.0; // Instant response for booms
-                else if (isCritical) tickRate = 5.0; // Fast response for shortages
+            if (clogEvent) tickRate = 1.0 / clogEvent.magnitude; // Slow down
+            else if (route.type === 'air' && toNode.type === 'market') {
+                const isSpiking = state.events.some(e => e.targetId === toNode.id && e.type === 'market_spike');
+                if (isSpiking) tickRate = 20.0; 
+                else if (toNode.inventory < toNode.maxInventory * 0.15) tickRate = 5.0; 
             }
-
             route.timer += dt * 1000 * tickRate; 
-            if (route.timer >= route.interval) { 
-                route.timer = 0; 
-                dispatchUnit(route); 
-            } 
+            if (route.timer >= route.interval) { route.timer = 0; dispatchUnit(route); } 
         } 
     });
     
-    // THROTTLE UI UPDATES to ~5 FPS
     state.uiTimer = (state.uiTimer || 0) + dt;
-    if (state.uiTimer > 0.2) {
-        updateUI();
-        updateDashboard();
-        if (document.getElementById('history-modal').style.display !== 'none') renderHistoryCharts();
-        state.uiTimer = 0;
-    }
+    if (state.uiTimer > 0.2) { updateUI(); updateDashboard(); state.uiTimer = 0; }
 }
 
 function dispatchUnit(route) {
@@ -1253,8 +1294,6 @@ function dispatchUnit(route) {
     const to = state.nodes.find(n => n.id === route.to);
     const cfg = CONFIG.transport[route.type];
     
-    // PULL SYSTEM: Saturation Check
-    // Count cargo already en route to the destination
     const incomingCargo = state.units
         .filter(u => {
              const r = state.routes.find(r => r.id === u.routeId);
@@ -1262,21 +1301,16 @@ function dispatchUnit(route) {
         })
         .reduce((sum, u) => sum + u.cargo, 0);
 
-    // Prevent oversupply: If Inventory + Incoming > Max, don't send more.
     if (to.inventory + incomingCargo >= to.maxInventory) {
         return;
     }
 
-    // Partial Shipment Logic: Send whatever is available if it's worth it (> 10 units)
-    // Don't wait for full capacity if destination is needy.
     let amount = Math.min(cfg.capacity, from.inventory);
     
-    // Cost Check & Min Amount
     if (amount > 10 && state.cash >= cfg.costPerDispatch) {
         from.inventory -= amount; 
         state.cash -= cfg.costPerDispatch;
         
-        // Calculate Cost Basis
         const transportCostPerUnit = cfg.costPerDispatch / amount;
         const totalUnitCost = from.unitCost + transportCostPerUnit;
 
@@ -1296,33 +1330,20 @@ function updateUnits(dt) {
     for (let i = state.units.length - 1; i >= 0; i--) {
         const u = state.units[i];
         const route = state.routes.find(r => r.id === u.routeId);
-        
-        // Visual Speed Mode
-        // Ship Speed 80 -> 3.2px/sec
-        // Air Speed 1000 -> 40px/sec
         const speedPx = CONFIG.transport[u.type].speed * 0.04;
-        
-        // progress += (PixelsPerSec * dt) / TotalPixels
         const dist = Math.max(1, route.totalVisualDistance);
         u.progress += (speedPx * dt) / dist;
 
-        // Freshness Decay in Transit
-        // Ships take longer, so decay accumulates more. Air is fast.
-        // Base decay rate: 0.001 per second
         u.quality = Math.max(0.1, u.quality - dt * 0.001);
 
         if (u.progress >= 1) {
             const dest = state.nodes.find(n => n.id === route.to);
-            
-            // Add Manufacturing Value/Cost if destination is a factory
-            // This represents the cost added to transform Raw -> Product
             if (dest.type === 'make') {
                 const makeCost = dest.id === 'china' ? 3.0 : (dest.id === 'vietnam' ? 2.0 : 4.0);
                 u.unitCost += makeCost;
-                state.cash -= u.cargo * makeCost; // Deduct Manufacturing OpEx
+                state.cash -= u.cargo * makeCost; 
             }
 
-            // Weighted Average Mixing: Quality AND Cost
             const totalStock = dest.inventory + u.cargo;
             if (totalStock > 0) {
                 dest.quality = ((dest.inventory * dest.quality) + (u.cargo * u.quality)) / totalStock;
@@ -1342,81 +1363,72 @@ function updateParticles(dt) {
     }
 }
 
-function spawnParticle(pos, text, color) { state.particles.push({ x: pos[0], y: pos[1] - 10, text, color, life: 1.5 }); }
+function spawnParticle(pos, text, color) { 
+    state.particles.push({ x: pos[0], y: pos[1] - 10, text, color, life: 1.5 }); 
+}
 
+// --- MODULE: RENDERER ---
 let renderErrorShown = false;
 function render() {
     try {
+        const { ctx, width, height, transform, routes, units, nodes, particles, events } = state;
         ctx.clearRect(0, 0, width, height);
         
         ctx.save();
-        ctx.translate(state.transform.x, state.transform.y);
-        ctx.scale(state.transform.k, state.transform.k);
+        ctx.translate(transform.x, transform.y);
+        ctx.scale(transform.k, transform.k);
         
-        // 1. Draw Routes using d3.geoPath for correct dateline clipping
-        state.routes.forEach(r => {
-            const hasUnits = state.units.some(u => u.routeId === r.id);
+        // 1. Draw Routes
+        routes.forEach(r => {
+            const hasUnits = units.some(u => u.routeId === r.id);
             if (!r.active && !hasUnits) return;
             
             ctx.beginPath();
-            pathGenerator.context(ctx)({type: "LineString", coordinates: r.pathCoords});
+            state.pathGenerator.context(ctx)({type: "LineString", coordinates: r.pathCoords});
             
-            // If inactive but has units, render with slightly lower opacity to indicate "shutting down"
             const baseColor = r.type === 'air' ? CONFIG.colors.airPath : CONFIG.colors.seaPath;
-            ctx.strokeStyle = (!r.active && hasUnits) ? baseColor.replace('0.3', '0.1').replace('0.15', '0.05') : baseColor;
-            // Actually, replace on rgba string might be brittle if format changes, but CONFIG uses specific strings.
-            // CONFIG.seaPath: 'rgba(88, 166, 255, 0.3)'
-            // CONFIG.airPath: 'rgba(255, 255, 255, 0.15)'
-            // Let's just use the base color for now to satisfy "don't erase".
             ctx.strokeStyle = baseColor;
-
-            ctx.lineWidth = (r.type === 'air' ? 1.5 : 2) / state.transform.k;
-            if (r.type === 'air') ctx.setLineDash([4/state.transform.k, 6/state.transform.k]);
+            ctx.lineWidth = (r.type === 'air' ? 1.5 : 2) / transform.k;
+            
+            if (r.type === 'air') ctx.setLineDash([4/transform.k, 6/transform.k]);
             ctx.stroke(); 
             ctx.setLineDash([]);
             
-            pathGenerator.context(null); // Reset context
+            state.pathGenerator.context(null); 
         });
 
-        // 2. Draw Units with correct interpolation
-        state.units.forEach(u => {
-            const route = state.routes.find(r => r.id === u.routeId);
+        // 2. Draw Units
+        units.forEach(u => {
+            const route = routes.find(r => r.id === u.routeId);
             if (!route || !route.visualStops || route.visualStops.length < 2) return;
 
-            // Use visual stops for constant visual speed interpolation
             const stops = route.visualStops;
-            
-            // Find segment: stops[i] <= u.progress <= stops[i+1]
             let idx = stops.findIndex(s => s > u.progress);
             if (idx === -1) idx = stops.length - 1;
             idx = Math.max(1, idx) - 1;
             
-            // Safety check for index bounds
             if (idx < 0 || idx >= route.pathCoords.length - 1) return;
 
             const startP = stops[idx];
             const endP = stops[idx+1];
-            
             if (startP === undefined || endP === undefined) return;
 
             const range = endP - startP;
-            
-            // Normalize t within the segment (0..1)
             const t = range > 0 ? (u.progress - startP) / range : 0;
             
             const interpolator = d3.geoInterpolate(route.pathCoords[idx], route.pathCoords[idx+1]);
             const pos = interpolator(t);
-            const p = projection(pos);
+            const p = state.projection(pos);
                 
-            if (p) { // Check if point is projected (not clipped)
+            if (p) {
                 const [x, y] = p;
                 ctx.fillStyle = u.type === 'ship' ? CONFIG.transport.ship.color : CONFIG.transport.air.color;
                 ctx.beginPath();
                 if (u.type === 'ship') {
-                    const s = 4/state.transform.k;
+                    const s = 4/transform.k;
                     ctx.rect(x - s, y - s, s * 2, s * 2);
                 } else {
-                    const s = 5/state.transform.k;
+                    const s = 5/transform.k;
                     ctx.moveTo(x, y - s);
                     ctx.lineTo(x + s, y + s);
                     ctx.lineTo(x - s, y + s);
@@ -1425,72 +1437,73 @@ function render() {
             }
         });
 
-        state.nodes.forEach(n => {
-            const [x, y] = projection(n.coords), isSel = state.selectedNodeId === n.id, r = (isSel ? 14 : 9) / state.transform.k;
+        // 3. Draw Nodes
+        nodes.forEach(n => {
+            const [x, y] = state.projection(n.coords);
+            const isSel = state.selectedNodeId === n.id;
+            const r = (isSel ? 14 : 9) / transform.k;
             
-            // Boom Effect
-            const boom = state.booms.find(b => b.nodeId === n.id);
-            if (boom) {
+            // Unified Event Effect
+            const activeEvent = events.find(e => e.targetId === n.id);
+            if (activeEvent) {
                  const t = (Date.now() / 300) % 1;
                  ctx.beginPath();
-                 ctx.arc(x, y, r + (30 * t)/state.transform.k, 0, Math.PI * 2);
-                 ctx.strokeStyle = `rgba(255, 215, 0, ${1-t})`; 
-                 ctx.lineWidth = 4/state.transform.k; 
+                 ctx.arc(x, y, r + (30 * t)/transform.k, 0, Math.PI * 2);
+                 ctx.strokeStyle = activeEvent.color + Math.floor((1-t)*255).toString(16).padStart(2,'0'); 
+                 ctx.lineWidth = 4/transform.k; 
                  ctx.stroke();
             }
 
             if (n.alert > 0) {
                 const t = (Date.now() / 800) % 1;
                 ctx.beginPath(); 
-                ctx.arc(x, y, r + (20 * t)/state.transform.k, 0, Math.PI * 2); 
+                ctx.arc(x, y, r + (20 * t)/transform.k, 0, Math.PI * 2); 
                 ctx.fillStyle = `rgba(248, 81, 73, ${0.4 * (1-t)})`; ctx.fill();
-                ctx.strokeStyle = `rgba(248, 81, 73, ${1-t})`; ctx.lineWidth = 2/state.transform.k; ctx.stroke();
+                ctx.strokeStyle = `rgba(248, 81, 73, ${1-t})`; ctx.lineWidth = 2/transform.k; ctx.stroke();
             }
 
-            // Draw Node Circle
             ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fillStyle = CONFIG.colors[n.type]; ctx.fill();
             
-            // Draw Selection Ring (Simpler logic)
             if (isSel) {
-                 ctx.strokeStyle = '#fff'; 
-                 ctx.lineWidth = 3/state.transform.k; 
-                 ctx.stroke();
+                 ctx.strokeStyle = '#fff'; ctx.lineWidth = 3/transform.k; ctx.stroke();
             } else {
-                 ctx.strokeStyle = '#161b22'; 
-                 ctx.lineWidth = 2/state.transform.k; 
-                 ctx.stroke();
+                 ctx.strokeStyle = '#161b22'; ctx.lineWidth = 2/transform.k; ctx.stroke();
             }
 
-            const bw = 32/state.transform.k, bh = 5/state.transform.k, pct = Math.min(1, n.inventory / n.maxInventory);
-            ctx.fillStyle = "rgba(22, 27, 34, 0.8)"; ctx.fillRect(x - bw/2, y + r + 2/state.transform.k, bw, bh);
-            ctx.fillStyle = pct < 0.2 ? CONFIG.colors.supply : CONFIG.colors.market; ctx.fillRect(x - bw/2, y + r + 2/state.transform.k, bw * pct, bh);
+            const bw = 32/transform.k, bh = 5/transform.k, pct = Math.min(1, n.inventory / n.maxInventory);
+            ctx.fillStyle = "rgba(22, 27, 34, 0.8)"; ctx.fillRect(x - bw/2, y + r + 2/transform.k, bw, bh);
+            ctx.fillStyle = pct < 0.2 ? CONFIG.colors.supply : CONFIG.colors.market; ctx.fillRect(x - bw/2, y + r + 2/transform.k, bw * pct, bh);
         });
 
-        state.particles.forEach(p => { ctx.globalAlpha = Math.max(0, p.life); ctx.font = `bold ${14/state.transform.k}px Inter`; ctx.fillStyle = p.color; ctx.fillText(p.text, p.x, p.y); ctx.globalAlpha = 1; });
+        // 4. Draw Particles
+        particles.forEach(p => { 
+            ctx.globalAlpha = Math.max(0, p.life); 
+            ctx.font = `bold ${14/transform.k}px Inter`; 
+            ctx.fillStyle = p.color; 
+            ctx.fillText(p.text, p.x, p.y); 
+            ctx.globalAlpha = 1; 
+        });
         ctx.restore();
     } catch (e) {
         if (!renderErrorShown) {
             console.error(e);
-            // Notification removed
             renderErrorShown = true;
         }
     }
 }
 
+// --- MODULE: UI MANAGER ---
 function updateUI() {
-    const fmt = n => n >= 1e6 ? '$' + (n/1e6).toFixed(1) + 'M' : (n >= 1e3 ? '$' + (n/1e3).toFixed(0) + 'k' : '$' + Math.floor(n));
-    document.getElementById('cash-display').innerText = fmt(state.cash);
+    document.getElementById('cash-display').innerText = Utils.fmtCurrency(state.cash);
     if (state.selectedNodeId) updateSheetStats(state.nodes.find(n => n.id === state.selectedNodeId));
 
-    // Update Boom Notifications (Persistent)
     const area = document.getElementById('notification-area');
-    if (state.booms.length === 0) {
+    if (state.events.length === 0) {
         area.innerHTML = '';
     } else {
-        area.innerHTML = state.booms.map(b => {
-            const node = state.nodes.find(n => n.id === b.nodeId);
-            return `<div class="toast info" style="opacity:1; transform:none; animation:none; border-bottom: 2px solid #ffd700; width: fit-content;">
-                <span class="toast-icon">🔥</span><span><strong>${node.name}</strong>:x${b.mult} Dem/Price (${Math.ceil(b.timeLeft)}s)</span>
+        area.innerHTML = state.events.map(e => {
+            return `<div class="toast info" style="opacity:1; transform:none; animation:none; border-bottom: 2px solid ${e.color}; width: fit-content;">
+                <span class="toast-icon">${e.icon}</span><span><strong>${e.label}</strong> (${Math.ceil(e.timeLeft)}s)</span>
             </div>`;
         }).join('');
     }
@@ -1498,8 +1511,12 @@ function updateUI() {
 
 d3.select("#map-svg").on("click", (event) => {
     const [mx, my] = d3.pointer(event);
-    const tx = (mx - state.transform.x) / state.transform.k, ty = (my - state.transform.y) / state.transform.k;
-    const clicked = state.nodes.find(n => { const [nx, ny] = projection(n.coords); return Math.hypot(nx - tx, ny - ty) < 25/state.transform.k; });
+    const tx = (mx - state.transform.x) / state.transform.k;
+    const ty = (my - state.transform.y) / state.transform.k;
+    const clicked = state.nodes.find(n => { 
+        const [nx, ny] = state.projection(n.coords); 
+        return Math.hypot(nx - tx, ny - ty) < 25/state.transform.k; 
+    });
     if (clicked) openSheet(clicked); else closePanel();
 });
 
@@ -1510,21 +1527,18 @@ function openSheet(node) {
     document.getElementById('sheet-title').style.color = CONFIG.colors[node.type];
 
     const isMobileLandscape = window.innerWidth > window.innerHeight && window.innerHeight <= 500;
-    const isDesktop = window.innerWidth >= 900; // New breakpoint for desktop-like behavior
+    const isDesktop = window.innerWidth >= 900; 
 
     s.classList.remove('panel-left', 'panel-right');
 
     if (isMobileLandscape || isDesktop) {
-        // Apply side panel styles
-        const [nx, ny] = projection(node.coords);
+        const [nx, ny] = state.projection(node.coords);
         const tx = nx * state.transform.k + state.transform.x;
 
-        if (tx < window.innerWidth / 2) {
-            s.classList.add('panel-right'); // Node left -> Panel Right
-        } else {
-            s.classList.add('panel-left'); // Node right -> Panel Left
-        }
-        s.style.position = 'fixed'; // Ensure it's fixed relative to viewport
+        if (tx < window.innerWidth / 2) s.classList.add('panel-right'); 
+        else s.classList.add('panel-left'); 
+        
+        s.style.position = 'fixed';
         s.style.width = '40%';
         s.style.minWidth = '300px';
         s.style.top = '0';
@@ -1532,37 +1546,20 @@ function openSheet(node) {
         s.style.maxHeight = '100vh';
         s.style.borderRadius = '0';
         s.style.zIndex = '1000';
-        s.style.transition = 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)';
 
-        // Position based on panel-left/panel-right
         if (s.classList.contains('panel-left')) {
-            s.style.left = '0';
-            s.style.right = 'auto';
-            s.style.borderRight = '1px solid var(--panel-border)';
-            s.style.borderLeft = 'none';
+            s.style.left = '0'; s.style.right = 'auto';
+            s.style.borderRight = '1px solid var(--panel-border)'; s.style.borderLeft = 'none';
         } else {
-            s.style.right = '0';
-            s.style.left = 'auto';
-            s.style.borderLeft = '1px solid var(--panel-border)';
-            s.style.borderRight = 'none';
+            s.style.right = '0'; s.style.left = 'auto';
+            s.style.borderLeft = '1px solid var(--panel-border)'; s.style.borderRight = 'none';
         }
     } else {
-        // Apply bottom panel styles (Portrait mobile and small tablets)
-        s.style.position = 'absolute'; // Reset position
-        s.style.width = '100%';
-        s.style.minWidth = 'auto'; // Reset min-width
-        s.style.top = 'auto'; // Reset top
-        s.style.height = 'auto'; // Reset height
-        s.style.maxHeight = '85vh';
-        s.style.borderRadius = '24px 24px 0 0';
-        s.style.zIndex = '100';
-        s.style.transition = 'transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1)';
-        s.style.left = '0';
-        s.style.right = '0';
-        s.style.bottom = '0';
+        s.style.position = 'absolute'; s.style.width = '100%'; s.style.minWidth = 'auto'; 
+        s.style.top = 'auto'; s.style.height = 'auto'; s.style.maxHeight = '85vh';
+        s.style.borderRadius = '24px 24px 0 0'; s.style.zIndex = '100';
+        s.style.left = '0'; s.style.right = '0'; s.style.bottom = '0';
         s.style.borderTop = '1px solid var(--panel-border)';
-        s.style.borderLeft = 'none';
-        s.style.borderRight = 'none';
     }
 
     updateSheetStats(node);
@@ -1575,16 +1572,10 @@ function updateSheetStats(n) {
     const cost = Math.floor(CONFIG.upgradeCosts.base * Math.pow(CONFIG.upgradeCosts.multiplier, n.level - 1));
     const canAfford = state.cash >= cost;
     
-    // Check if we need to full render (initial open) or just update values
-    // We use a data attribute to track the current node ID to force redraw on switch
     if (container.getAttribute('data-node-id') !== n.id) {
         container.setAttribute('data-node-id', n.id);
         
-        let label = "";
-        if (n.type === 'supply') label = "Production";
-        else if (n.type === 'make') label = "Throughput";
-        else if (n.type === 'market') label = "Marketing";
-
+        let label = n.type === 'supply' ? "Production" : (n.type === 'make' ? "Throughput" : "Marketing");
         let h = `<div class="stat-card" style="grid-column: span 2; display:flex; justify-content:space-between; align-items:center; padding: 10px 16px;" id="upgrade-card">
                 <div style="display:flex; flex-direction:column;">
                     <div class="stat-card-label">${label}: Lv <span id="stat-lvl">${n.level}</span></div>
@@ -1593,88 +1584,55 @@ function updateSheetStats(n) {
                 <button id="btn-upgrade" onclick="upgradeNode('${n.id}')" style="border:none; padding:8px 16px; border-radius:6px; font-weight:bold; white-space:nowrap; margin-left:10px;">UPGRADE</button>
               </div>`;
 
-        h += `<div class="stat-card"><div class="stat-card-label" title="Includes variable transport costs. Fill vehicles to reduce this!">Avg. Unit Cost <span style="cursor:help; opacity:0.7;">ℹ️</span></div><div class="stat-card-value">$${n.unitCost.toFixed(2)}</div></div>`;
-        h += `<div class="stat-card"><div class="stat-card-label">Stock Level</div><div class="stat-card-value"><span id="stat-stock">${Math.floor(n.inventory)}</span> <span style="font-size:0.7em; color:#8b949e">/ <span id="stat-max">${Math.floor(n.maxInventory)}</span></span></div></div>`;
+        h += `<div class="stat-card"><div class="stat-card-label">Avg. Unit Cost</div><div class="stat-card-value">$${n.unitCost.toFixed(2)}</div></div>`;
+        h += `<div class="stat-card"><div class="stat-card-label">Stock Level</div><div class="stat-card-value"><span id="stat-stock">${Math.floor(n.inventory)}</span> / <span id="stat-max">${Math.floor(n.maxInventory)}</span></div></div>`;
         
         if (n.type === 'market') {
-            h += `<div class="stat-card"><div class="stat-card-label">Product Freshness</div><div class="stat-card-value"><span id="stat-fresh-val">0%</span> <span id="stat-fresh-text" style="font-size:12px; opacity:0.8">-</span></div></div>`;
-            h += `<div class="stat-card"><div class="stat-card-label">Current Price</div><div class="stat-card-value" style="color:var(--accent-green)"><span id="stat-price-val">$0</span> <span style="font-size:12px; color:var(--text-secondary)">/ unit</span></div></div>`;
-            h += `<div class="stat-card"><div class="stat-card-label">Market Demand</div><div class="stat-card-value" style="color:var(--accent-green)"><span id="stat-rate">${n.demand.toFixed(1)}</span> /d</div></div>`;
+            h += `<div class="stat-card"><div class="stat-card-label">Freshness</div><div class="stat-card-value"><span id="stat-fresh-val">0%</span> <span id="stat-fresh-text" style="font-size:12px; opacity:0.8">-</span></div></div>`;
+            h += `<div class="stat-card"><div class="stat-card-label">Price</div><div class="stat-card-value" style="color:var(--accent-green)"><span id="stat-price-val">$0</span></div></div>`;
+            h += `<div class="stat-card"><div class="stat-card-label">Demand</div><div class="stat-card-value" style="color:var(--accent-green)"><span id="stat-rate">${n.demand.toFixed(1)}</span> /d</div></div>`;
         }
-        else if (n.type === 'supply') h += `<div class="stat-card"><div class="stat-card-label">Production</div><div class="stat-card-value" style="color:var(--accent-red)"><span id="stat-rate">${n.production.toFixed(1)}</span> /d</div></div>`;
-        else if (n.type === 'make') h += `<div class="stat-card"><div class="stat-card-label">Throughput</div><div class="stat-card-value" style="color:var(--accent-yellow)"><span id="stat-rate">${n.processRate.toFixed(1)}</span> /d</div></div>`;
+        else h += `<div class="stat-card"><div class="stat-card-label">Rate</div><div class="stat-card-value"><span id="stat-rate">${(n.type==='supply'?n.production:n.processRate).toFixed(1)}</span> /d</div></div>`;
         
         container.innerHTML = h;
     }
 
-    // Dynamic Updates (Text & Style only) - Preserves Event Listeners
     document.getElementById('stat-lvl').innerText = n.level;
     document.getElementById('stat-cost').innerText = '$' + (cost/1000).toFixed(1) + 'k';
     document.getElementById('stat-stock').innerText = Math.floor(n.inventory);
     document.getElementById('stat-max').innerText = Math.floor(n.maxInventory);
     
-    // Rate update
     const rateEl = document.getElementById('stat-rate');
     if (rateEl) rateEl.innerText = (n.type==='market'?n.demand:n.type==='supply'?n.production:n.processRate).toFixed(1);
 
-    // Market Specific Dynamic Updates
     if (n.type === 'market') {
         const boom = state.booms.find(b => b.nodeId === n.id);
         const boomMult = boom ? boom.mult : 1;
-        const qualityMult = 0.2 + 2.8 * Math.pow(n.quality, 2);
-        const currentPrice = CONFIG.salePrice * qualityMult * boomMult;
-
-        const freshVal = document.getElementById('stat-fresh-val');
-        const freshText = document.getElementById('stat-fresh-text');
-        const priceVal = document.getElementById('stat-price-val');
+        const currentPrice = CONFIG.salePrice * (0.2 + 2.8 * Math.pow(n.quality, 2)) * boomMult;
+        const freshVal = document.getElementById('stat-fresh-val'), freshText = document.getElementById('stat-fresh-text'), priceVal = document.getElementById('stat-price-val');
         
-        // Logic: Out of stock -> Hide freshness/price or show empty state
-        // Else: Color logic
         if (n.inventory < 1) {
-            if (freshVal) {
-                freshVal.innerText = "-";
-                freshVal.parentElement.style.color = 'var(--text-secondary)';
-            }
+            if (freshVal) freshVal.innerText = "-";
             if (freshText) freshText.innerText = "OUT OF STOCK";
             if (priceVal) priceVal.innerText = "-";
         } else {
             const q = n.quality;
-            // > 0.8: Green (Premium)
-            // 0.4 - 0.8: Yellow (Fresh/Normal)
-            // <= 0.4: Red (Stale)
             const qColor = q > 0.8 ? '#3fb950' : (q > 0.4 ? '#dbab09' : '#f85149');
-            const qText = q > 0.85 ? 'PREMIUM' : (q > 0.6 ? 'FRESH' : (q > 0.4 ? 'NORMAL' : 'STALE'));
-            
-            if (freshVal) {
-                freshVal.innerText = (q*100).toFixed(0) + '%';
-                freshVal.parentElement.style.color = qColor;
-            }
-            if (freshText) freshText.innerText = qText;
+            if (freshVal) { freshVal.innerText = (q*100).toFixed(0) + '%'; freshVal.parentElement.style.color = qColor; }
+            if (freshText) freshText.innerText = q > 0.85 ? 'PREMIUM' : (q > 0.6 ? 'FRESH' : 'NORMAL');
             if (priceVal) priceVal.innerText = '$' + currentPrice.toFixed(1);
         }
     }
 
-    const btn = document.getElementById('btn-upgrade');
-    const card = document.getElementById('upgrade-card');
-    
-    // Update button style without replacing element
+    const btn = document.getElementById('btn-upgrade'), card = document.getElementById('upgrade-card');
     btn.style.background = canAfford ? 'var(--accent-green)' : '#30363d';
-    btn.style.color = 'white';
-    btn.style.cursor = canAfford ? 'pointer' : 'not-allowed';
     btn.style.opacity = canAfford ? 1 : 0.5;
-    
     card.style.background = canAfford ? 'rgba(63, 185, 80, 0.15)' : 'rgba(255,255,255,0.05)';
-    card.style.borderColor = canAfford ? 'var(--accent-green)' : 'transparent';
-    card.style.borderWidth = '1px';
-    card.style.borderStyle = 'solid';
 }
 
 function renderSheetRoutes(n) {
     const section = document.querySelector('.routes-section');
-    if (n.type === 'market') {
-        section.style.display = 'none';
-        return;
-    }
+    if (n.type === 'market') { section.style.display = 'none'; return; }
     section.style.display = 'block';
 
     const c = document.getElementById('sheet-routes'), out = state.routes.filter(r => r.from === n.id);
@@ -1691,10 +1649,7 @@ function renderSheetRoutes(n) {
 
 function renderOpt(r, l, i, c) {
     if (!r) return '';
-    // frequency in Game Days. Convert r.interval (ms) to Days.
-    // 1 Day = 5000ms. So days = interval / 5000.
     const days = (r.interval / 5000).toFixed(1);
-    
     return `<div class="transport-option" style="flex-direction:column; align-items:flex-start; gap:8px;">
         <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
             <div class="transport-info"><span>${i}</span><span style="font-weight:500;">${l}</span><span class="transport-cost">${c}</span></div>
@@ -1709,351 +1664,145 @@ function renderOpt(r, l, i, c) {
 
 window.updateInterval = (id, val) => {
     const r = state.routes.find(x => x.id === id);
-    if (r) {
-        r.interval = val * 5000; // Convert Days -> MS (1 Day = 5s)
-        document.getElementById(`val-${id}`).innerText = val;
-    }
+    if (r) { r.interval = val * 5000; document.getElementById(`val-${id}`).innerText = val; }
 };
 
 window.toggleRoute = id => { 
     const r = state.routes.find(x => x.id === id); 
-    if(r) {
-        r.active = !r.active;
-        const ctrl = document.getElementById(`ctrl-${id}`);
-        if(ctrl) ctrl.style.display = r.active ? 'flex' : 'none';
-    } 
+    if(r) { r.active = !r.active; const ctrl = document.getElementById(`ctrl-${id}`); if(ctrl) ctrl.style.display = r.active ? 'flex' : 'none'; } 
 };
-window.toggleSpeedMenu = () => document.getElementById('speed-menu').classList.toggle('open');
 
 window.setSpeed = val => { 
-    const v = Number(val);
-    state.speed = v; 
+    const v = Number(val); state.speed = v; 
     const btns = document.querySelectorAll('.fab-menu .fab-btn');
-    // Button order in HTML: [Fast, Play, Pause] (indices 0, 1, 2)
-    // Wait, check HTML order: Fast is first child?
-    // HTML: Fast(0), Play(1), Pause(2)
-    
-    btns[0].classList.toggle('active', v >= 3);
-    btns[1].classList.toggle('active', v === 1);
-    btns[2].classList.toggle('active', v === 0);
-    
-    if (v >= 3) btns[0].innerText = `⏩ x${v}`;
-    else btns[0].innerText = '⏩';
+    btns[0].classList.toggle('active', v >= 3); btns[1].classList.toggle('active', v === 1); btns[2].classList.toggle('active', v === 0);
+    if (v >= 3) btns[0].innerText = `⏩ x${v}`; else btns[0].innerText = '⏩';
 };
 
 window.cycleFastSpeed = () => {
-    if (state.speed < 3) setSpeed(3);
-    else if (state.speed === 3) setSpeed(10);
-    else if (state.speed === 10) setSpeed(50);
-    else setSpeed(3);
+    if (state.speed < 3) setSpeed(3); else if (state.speed === 3) setSpeed(10); else if (state.speed === 10) setSpeed(50); else setSpeed(3);
 };
 
-window.adjustZoom = f => svg.transition().call(zoomBehavior.scaleBy, f);
-window.resetZoom = () => svg.transition().call(zoomBehavior.transform, d3.zoomIdentity);
-window.closePanel = () => { document.getElementById('selection-sheet').classList.remove('active'); state.selectedNodeId = null; renderErrorShown = false; render(); };
+window.setDuration = (yrs) => {
+    state.durationYears = yrs;
+    ['1y', '3y', '5y'].forEach(id => document.getElementById(`btn-${id}`).classList.toggle('active', id === `${yrs}y`));
+};
+
+function showYearlyReport() {
+    state.speed = 0;
+    const rev = state.cash - state.yearlyCashStart;
+    const serviceLevel = state.yearlySales / (state.yearlySales + (state.totalLostSales / state.currentYear) || 1); // Simple proxy
+    
+    document.getElementById('report-year').innerText = state.currentYear;
+    document.getElementById('report-revenue').innerText = Utils.fmtCurrency(rev);
+    document.getElementById('report-service').innerText = (serviceLevel * 100).toFixed(0) + '%';
+    document.getElementById('next-year').innerText = state.currentYear + 1;
+    document.getElementById('report-modal').style.display = 'flex';
+}
+
+window.continueGame = () => {
+    document.getElementById('report-modal').style.display = 'none';
+    state.currentYear++;
+    state.day = 1;
+    state.lastIntegerDay = 1;
+    state.yearlyCashStart = state.cash;
+    state.yearlySales = 0;
+    document.getElementById('year-display').innerText = `Year ${state.currentYear} / ${state.durationYears}`;
+    setSpeed(1);
+};
+
+window.adjustZoom = f => d3.select("#map-svg").transition().call(state.zoomBehavior.scaleBy, f);
+window.resetZoom = () => d3.select("#map-svg").transition().call(state.zoomBehavior.transform, d3.zoomIdentity);
+window.closePanel = () => { document.getElementById('selection-sheet').classList.remove('active'); state.selectedNodeId = null; render(); };
 
 window.toggleDashboard = () => {
-    const dash = document.getElementById('dashboard-modal');
-    const hist = document.getElementById('history-modal');
-    
-    // Close history
+    const dash = document.getElementById('dashboard-modal'), hist = document.getElementById('history-modal');
     hist.style.display = 'none';
-    
-    // Toggle dashboard
-    if (dash.style.display === 'none' || !dash.style.display) {
-        dash.style.display = 'block';
-        updateDashboard();
-    } else {
-        dash.style.display = 'none';
-    }
+    dash.style.display = (dash.style.display === 'none' || !dash.style.display) ? 'block' : 'none';
+    if (dash.style.display === 'block') updateDashboard();
 };
 
 window.toggleHistory = () => {
-    const dash = document.getElementById('dashboard-modal');
-    const hist = document.getElementById('history-modal');
-    
-    // Close dashboard
+    const dash = document.getElementById('dashboard-modal'), hist = document.getElementById('history-modal');
     dash.style.display = 'none';
-    
-    // Toggle history
-    if (hist.style.display === 'none' || !hist.style.display) {
-        hist.style.display = 'block';
-        renderHistoryCharts();
-    } else {
-        hist.style.display = 'none';
-    }
+    hist.style.display = (hist.style.display === 'none' || !hist.style.display) ? 'block' : 'none';
+    if (hist.style.display === 'block') renderHistoryCharts();
 };
 
 function updateDashboard() {
     if (document.getElementById('dashboard-modal').style.display === 'none') return;
+    document.getElementById('dash-cash').innerText = Utils.fmtCurrency(state.cash);
+    document.getElementById('dash-inv').innerText = Utils.formatInt(state.nodes.reduce((a,n) => a + n.inventory, 0));
+    document.getElementById('dash-ships').innerText = Utils.formatInt(state.units.filter(u => u.type === 'ship').length);
+    document.getElementById('dash-planes').innerText = Utils.formatInt(state.units.filter(u => u.type === 'air').length);
 
-    // KPI Updates
-    document.getElementById('dash-cash').innerText = '$' + formatInt(state.cash);
-    document.getElementById('dash-inv').innerText = formatInt(state.nodes.reduce((a,n) => a + n.inventory, 0));
-    document.getElementById('dash-ships').innerText = formatInt(state.units.filter(u => u.type === 'ship').length);
-    document.getElementById('dash-planes').innerText = formatInt(state.units.filter(u => u.type === 'air').length);
-
-    const markets = state.nodes.filter(n => n.type === 'market');
     const mList = document.getElementById('dash-markets');
-    
-    // Header
-    let html = `
-        <div style="display:grid; grid-template-columns: 1fr 1.5fr 1fr 1fr; gap:8px; padding:8px 12px; font-size:12px; color:var(--text-secondary); text-transform:uppercase; font-weight:700;">
-            <div>Market</div>
-            <div>Stock / Cap</div>
-            <div>Demand</div>
-            <div>Status</div>
-        </div>
-    `;
-
-    // Rows
-    html += markets.map(m => {
+    let html = `<div style="display:grid; grid-template-columns: 1fr 1.5fr 1fr 1fr; gap:8px; padding:8px 12px; font-size:12px; color:var(--text-secondary); text-transform:uppercase; font-weight:700;"><div>Market</div><div>Stock / Cap</div><div>Demand</div><div>Status</div></div>`;
+    html += state.nodes.filter(n => n.type === 'market').map(m => {
         const fillRate = m.inventory / m.maxInventory;
-        let status = '<span style="color:var(--accent-green)">Healthy</span>';
-        if (fillRate < 0.1) status = '<span style="color:var(--accent-red)">Starving</span>';
-        else if (fillRate > 0.9) status = '<span style="color:var(--accent-yellow)">Full</span>';
-        else if (m.demand > m.inventory && m.inventory > 0) status = '<span style="color:var(--accent-yellow)">Draining</span>';
-
-        return `
-        <div style="background:rgba(255,255,255,0.03); padding:10px 12px; border-radius:8px; display:grid; grid-template-columns: 1fr 1.5fr 1fr 1fr; gap:8px; align-items:center; border:1px solid var(--panel-border); margin-bottom:6px;">
-            <span style="font-weight:bold;">${m.name}</span>
-            <span style="font-family:monospace; color:${fillRate<0.2?'var(--accent-red)':'var(--text-primary)'}">
-                ${formatInt(m.inventory)} <span style="color:var(--text-secondary)">/ ${formatInt(m.maxInventory)}</span>
-            </span>
-            <span style="font-family:monospace;">${m.demand.toFixed(1)}/d</span>
-            <span style="font-size:13px;">${status}</span>
+        let status = fillRate < 0.1 ? '<span style="color:var(--accent-red)">Starving</span>' : (fillRate > 0.9 ? '<span style="color:var(--accent-yellow)">Full</span>' : '<span style="color:var(--accent-green)">Healthy</span>');
+        return `<div style="background:rgba(255,255,255,0.03); padding:10px 12px; border-radius:8px; display:grid; grid-template-columns: 1fr 1.5fr 1fr 1fr; gap:8px; align-items:center; border:1px solid var(--panel-border); margin-bottom:6px;">
+            <span style="font-weight:bold;">${m.name}</span><span style="font-family:monospace;">${Utils.formatInt(m.inventory)} / ${Utils.formatInt(m.maxInventory)}</span><span>${m.demand.toFixed(1)}/d</span><span>${status}</span>
         </div>`;
     }).join('');
-    
     mList.innerHTML = html;
 }
 
 function renderHistoryCharts() {
     if (state.history.days.length < 2) {
         document.getElementById('cash-chart').innerHTML = '<div style="padding:40px; text-align:center; color:var(--text-secondary);">Waiting for more data...</div>';
-        document.getElementById('inv-chart').innerHTML = '';
         return;
     }
-
     const draw = (containerId, data, color, unit = "") => {
-        const container = document.getElementById(containerId);
-        container.innerHTML = '';
-        const margin = {top: 20, right: 10, bottom: 25, left: 50};
-        const w = container.clientWidth - margin.left - margin.right;
-        const h = container.clientHeight - margin.top - margin.bottom;
-        
-        const svg = d3.select(container).append("svg")
-            .attr("width", w + margin.left + margin.right)
-            .attr("height", h + margin.top + margin.bottom)
-            .append("g")
-            .attr("transform", `translate(${margin.left},${margin.top})`);
-        
-        const x = d3.scaleLinear().domain(d3.extent(state.history.days)).range([0, w]);
-        const y = d3.scaleLinear().domain([d3.min(data) * 0.9, d3.max(data) * 1.1]).range([h, 0]);
-        
-        // Add Y Unit Label
-        svg.append("text")
-            .attr("transform", "rotate(-90)")
-            .attr("y", -margin.left + 12)
-            .attr("x", -h / 2)
-            .attr("text-anchor", "middle")
-            .style("font-size", "10px")
-            .attr("fill", "var(--text-secondary)")
-            .text(unit);
-
-        // Add Axes
-        svg.append("g")
-            .attr("transform", `translate(0,${h})`)
-            .call(d3.axisBottom(x).ticks(5).tickFormat(d => `Day ${d}`))
-            .attr("color", "#8b949e");
-            
-        svg.append("g")
-            .call(d3.axisLeft(y).ticks(5).tickFormat(d => d >= 1000 ? `${(d/1000).toFixed(0)}k` : d))
-            .attr("color", "#8b949e");
-        
-        const line = d3.line()
-            .x((d, i) => x(state.history.days[i]))
-            .y(d => y(d))
-            .curve(d3.curveMonotoneX);
-            
-        svg.append("path")
-            .datum(data)
-            .attr("fill", "none")
-            .attr("stroke", color)
-            .attr("stroke-width", 2)
-            .attr("d", line);
-            
-        // Area fill
-        const area = d3.area()
-            .x((d, i) => x(state.history.days[i]))
-            .y0(h)
-            .y1(d => y(d))
-            .curve(d3.curveMonotoneX);
-            
-        svg.append("path")
-            .datum(data)
-            .attr("fill", color)
-            .attr("opacity", 0.1)
-            .attr("d", area);
+        const container = document.getElementById(containerId); container.innerHTML = '';
+        const margin = {top: 20, right: 10, bottom: 25, left: 50}, w = container.clientWidth - margin.left - margin.right, h = container.clientHeight - margin.top - margin.bottom;
+        const svg = d3.select(container).append("svg").attr("width", w + margin.left + margin.right).attr("height", h + margin.top + margin.bottom).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+        const x = d3.scaleLinear().domain(d3.extent(state.history.days)).range([0, w]), y = d3.scaleLinear().domain([d3.min(data) * 0.9, d3.max(data) * 1.1]).range([h, 0]);
+        svg.append("g").attr("transform", `translate(0,${h})`).call(d3.axisBottom(x).ticks(5).tickFormat(d => `Day ${d}`));
+        svg.append("g").call(d3.axisLeft(y).ticks(5).tickFormat(d => d >= 1000 ? `${(d/1000).toFixed(0)}k` : d));
+        svg.append("path").datum(data).attr("fill", "none").attr("stroke", color).attr("stroke-width", 2).attr("d", d3.line().x((d, i) => x(state.history.days[i])).y(d => y(d)).curve(d3.curveMonotoneX));
     };
-
     draw('cash-chart', state.history.cash, 'var(--accent-blue)', "Amount ($)");
     draw('inv-chart', state.history.inventory, 'var(--accent-green)', "Quantity");
-    
-    // Draw Balance Chart (Multi-line)
-    const container = document.getElementById('balance-chart');
-    container.innerHTML = '';
-    const margin = {top: 20, right: 10, bottom: 25, left: 50};
-    const w = container.clientWidth - margin.left - margin.right;
-    const h = container.clientHeight - margin.top - margin.bottom;
-    
-    const svg = d3.select(container).append("svg")
-        .attr("width", w + margin.left + margin.right)
-        .attr("height", h + margin.top + margin.bottom)
-        .append("g")
-        .attr("transform", `translate(${margin.left},${margin.top})`);
-        
-    const dataDem = state.history.demand;
-    const dataProd = state.history.production;
-    const allVals = [...dataDem, ...dataProd];
-    
-    const x = d3.scaleLinear().domain(d3.extent(state.history.days)).range([0, w]);
-    const y = d3.scaleLinear().domain([d3.min(allVals) * 0.9, d3.max(allVals) * 1.1]).range([h, 0]);
-    
-    // Grid
-    svg.append("g")
-        .attr("class", "grid")
-        .attr("opacity", 0.1)
-        .call(d3.axisLeft(y).tickSize(-w).tickFormat(""));
-
-    svg.append("g")
-        .attr("transform", `translate(0,${h})`)
-        .call(d3.axisBottom(x).ticks(5).tickFormat(d => `Day ${d}`))
-        .attr("color", "#8b949e");
-        
-    svg.append("g")
-        .call(d3.axisLeft(y).ticks(5).tickFormat(d => d >= 1000 ? `${(d/1000).toFixed(1)}k` : d))
-        .attr("color", "#8b949e");
-
-    // Y Unit Label
-    svg.append("text")
-        .attr("transform", "rotate(-90)")
-        .attr("y", -margin.left + 12)
-        .attr("x", -h / 2)
-        .attr("text-anchor", "middle")
-        .style("font-size", "10px")
-        .attr("fill", "var(--text-secondary)")
-        .text("Rate (/s)");
-
-    const line = d3.line().x((d, i) => x(state.history.days[i])).y(d => y(d)).curve(d3.curveMonotoneX);
-    
-    // Demand Line (Red)
-    svg.append("path").datum(dataDem).attr("fill","none").attr("stroke","var(--accent-red)").attr("stroke-width",2).attr("d",line);
-    // Prod Line (Blue)
-    svg.append("path").datum(dataProd).attr("fill","none").attr("stroke","var(--accent-blue)").attr("stroke-width",2).attr("stroke-dasharray","4").attr("d",line);
-    
-    // Legend
-    svg.append("text").attr("x", 10).attr("y", -5).text("Demand").attr("fill", "var(--accent-red)").style("font-size", "10px");
-    svg.append("text").attr("x", 60).attr("y", -5).text("Supply").attr("fill", "var(--accent-blue)").style("font-size", "10px");
 }
 
 window.upgradeNode = (id) => {
     const node = state.nodes.find(n => n.id === id);
     if (!node) return;
-    
     const cost = Math.floor(CONFIG.upgradeCosts.base * Math.pow(CONFIG.upgradeCosts.multiplier, node.level - 1));
-    
     if (state.cash >= cost) {
-        state.cash -= cost;
-        node.level++;
-        
-        // Upgrade effects based on type
-        if (node.type === 'supply') {
-            node.production *= 1.2; // +20% production
-            node.maxInventory *= 1.2;
-        } else if (node.type === 'make') {
-            node.capacity *= 1.2; // +20% throughput
-            node.processRate *= 1.2;
-            node.maxInventory *= 1.2;
-
-            // Update incoming routes to match new processRate
+        state.cash -= cost; node.level++;
+        if (node.type === 'supply') { node.production *= 1.2; node.maxInventory *= 1.2; }
+        else if (node.type === 'make') { 
+            node.processRate *= 1.2; node.maxInventory *= 1.2;
             state.routes.filter(r => r.to === node.id).forEach(r => {
-                const typeFactor = r.type === 'ship' ? 2.5 : 8.0; 
-                const cap = CONFIG.transport[r.type].capacity;
-                let newInt = (cap / Math.max(1, node.processRate)) * 1000 * typeFactor;
-                r.interval = Math.max(r.type === 'ship' ? 3000 : 2000, newInt);
+                r.interval = (CONFIG.transport[r.type].capacity / Math.max(1, node.processRate)) * 1000 * (r.type === 'ship' ? 2.5 : 8.0);
             });
-        } else if (node.type === 'market') {
-            node.baseDemand *= 1.2; // +20% demand
-            node.maxInventory *= 1.2;
         }
-        
-        spawnParticle(projection(node.coords), "UPGRADE!", "#ffd700");
-        updateUI(); // Refresh cash display
-        openSheet(node); // Refresh sheet with new stats/cost
-    } else {
-        // Notification removed
+        else if (node.type === 'market') { node.baseDemand *= 1.2; node.maxInventory *= 1.2; }
+        spawnParticle(state.projection(node.coords), "UPGRADE!", "#ffd700"); updateUI(); openSheet(node);
     }
 };
 
-window.startGame = () => {
-    document.getElementById('title-screen').style.display = 'none';
-    setSpeed(0); // Ensure starts paused and UI is synced
-    updateUI();
+window.startGame = () => { 
+    document.getElementById('title-screen').style.display = 'none'; 
+    document.getElementById('year-display').innerText = `Year ${state.currentYear} / ${state.durationYears}`;
+    state.yearlyCashStart = state.cash;
+    setSpeed(0); updateUI(); 
 };
 
 window.endGame = () => {
-    state.speed = 0;
-    document.getElementById('end-screen').style.display = 'flex';
-    document.getElementById('final-cash').innerText = '$' + formatInt(state.cash);
-    
-    // KPI Calculation
-    const markets = state.nodes.filter(n => n.type === 'market');
-    const avgFresh = markets.reduce((acc, m) => acc + m.quality, 0) / (markets.length || 1);
-    
-    // Inventory Turnover = Total Sales / Avg Inventory
-    // Use history for avg inventory (sampled daily)
-    const histInv = state.history.inventory;
-    const avgInv = histInv.length > 0 ? histInv.reduce((a,b)=>a+b,0)/histInv.length : state.nodes.reduce((a,n)=>a+n.inventory,0);
-    const turnover = avgInv > 0 ? state.totalSales / avgInv : 0;
-
-    document.getElementById('final-fresh').innerText = (avgFresh * 100).toFixed(0) + '%';
-    document.getElementById('final-fresh').style.color = avgFresh > 0.8 ? '#3fb950' : (avgFresh > 0.5 ? '#d29922' : '#f85149');
-    
-    document.getElementById('final-missed').innerText = formatInt(state.totalLostSales);
-    document.getElementById('final-turnover').innerText = turnover.toFixed(1) + 'x';
+    state.speed = 0; document.getElementById('end-screen').style.display = 'flex';
+    document.getElementById('final-cash').innerText = Utils.fmtCurrency(state.cash);
+    const avgInv = state.history.inventory.reduce((a,b)=>a+b,0) / (state.history.inventory.length || 1);
+    document.getElementById('final-turnover').innerText = (avgInv > 0 ? state.totalSales / avgInv : 0).toFixed(1) + 'x';
+    document.getElementById('final-fresh').innerText = (state.totalSales > 0 ? "DONE" : "-"); // Placeholder for final avg
 };
 
-window.replayGame = () => {
-    document.getElementById('end-screen').style.display = 'none';
-    resetState();
-    initGameLogic();
-    document.getElementById('time-display').innerText = `Day ${state.day.toFixed(1)}`;
-    setSpeed(0); // Ensure UI buttons are updated to paused state
-    resetZoom(); // Optional: reset camera
-    updateUI();
-};
+window.replayGame = () => { document.getElementById('end-screen').style.display = 'none'; resetState(); initGameLogic(); setSpeed(0); resetZoom(); updateUI(); document.getElementById('title-screen').style.display = 'flex'; };
 
 function resetState() {
-    state = {
-        cash: CONFIG.startCash,
-        day: 1.0,
-        lastIntegerDay: 1,
-        timeAccumulator: 0,
-        speed: 0,
-        nodes: [],
-        routes: [],
-        units: [],
-        particles: [],
-        booms: [],
-        history: { cash: [], inventory: [], days: [], demand: [], production: [] },
-        totalSales: 0,
-        totalLostSales: 0,
-        selectedNodeId: null,
-        lastTick: 0,
-        transform: state.transform || d3.zoomIdentity,
-        uiTimer: 0
-    };
+    state = { ...state, cash: CONFIG.startCash, day: 1.0, lastIntegerDay: 1, speed: 0, nodes: [], routes: [], units: [], particles: [], events: [], history: { cash: [], inventory: [], days: [], demand: [], production: [] }, totalSales: 0, totalLostSales: 0, yearlySales: 0, yearlyCashStart: CONFIG.startCash, selectedNodeId: null, lastTick: 0, uiTimer: 0, currentYear: 1 };
 }
 
 init();
