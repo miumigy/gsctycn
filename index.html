@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Global Supply Chain Tycoon</title>
+    <link rel="icon" href="data:,">
     <style>
         :root {
             --bg-color: #0d1117;
@@ -702,12 +703,14 @@ const WAYPOINTS = {
     malacca: { coords: [102.0, 2.5] },
     gibraltar: { coords: [-5.5, 36.0] },
     canaryPass: { coords: [-18.0, 28.0] },
+    portugalWest: { coords: [-10.5, 40.0] },
     hormuz: { coords: [56.0, 26.5] },
     babAlMandab: { coords: [43.3, 12.6] },
     dover: { coords: [1.3, 51.1] },
     
     // Capes
     capeGoodHope: { coords: [18.5, -34.5] },
+    capeAgulhas: { coords: [25.0, -36.0] },
     capeHorn: { coords: [-67.0, -56.0] },
     
     // Hubs / Sea Regions
@@ -727,19 +730,22 @@ const WAYPOINTS = {
     caribbeanGate: { coords: [-65, 20] },
     cubaPass: { coords: [-82, 23] },
     arabianSea: { coords: [65, 15] },
-    bayOfBengal: { coords: [90, 15] }
+    bayOfBengal: { coords: [90, 15] },
+    seychelles: { coords: [55.5, -4.6] },
+    mauritius: { coords: [57.5, -20.2] },
+    mozambiqueChannel: { coords: [40.0, -15.0] }
 };
 
 const NODES_DATA = [
-    { id: 'brazil', name: 'Brazil', type: 'supply', coords: [-51, -14], portCoords: [-40, -20], production: 25, maxInventory: 3000 },
-    { id: 'sa', name: 'South Africa', type: 'supply', coords: [25, -30], portCoords: [18, -34], production: 6 },
-    { id: 'congo', name: 'Congo', type: 'supply', coords: [21, -4], portCoords: [12, -6], production: 18, maxInventory: 2500 },
-    { id: 'china', name: 'China', type: 'make', coords: [121, 31], portCoords: [122, 30], capacity: 2000, processRate: 25 },
-    { id: 'india', name: 'India', type: 'make', coords: [73, 19], portCoords: [72.8, 18.9], capacity: 1750, processRate: 20 },
-    { id: 'vietnam', name: 'Vietnam', type: 'make', coords: [108, 14], portCoords: [107, 10], capacity: 1500, processRate: 15 },
-    { id: 'usa', name: 'USA', type: 'market', coords: [-95, 29], portCoords: [-90, 29], baseDemand: 25 },
-    { id: 'germany', name: 'Germany', type: 'market', coords: [10, 51], portCoords: [8, 54], baseDemand: 20 },
-    { id: 'japan', name: 'Japan', type: 'market', coords: [138, 36], portCoords: [139.7, 35.6], baseDemand: 15 }
+    { id: 'brazil', name: 'Brazil', type: 'supply', coords: [-40, -20], portCoords: [-40, -20], production: 25, maxInventory: 3000 },
+    { id: 'sa', name: 'South Africa', type: 'supply', coords: [18, -34], portCoords: [18, -34], production: 6 },
+    { id: 'congo', name: 'Congo', type: 'supply', coords: [12, -6], portCoords: [12, -6], production: 18, maxInventory: 2500 },
+    { id: 'china', name: 'China', type: 'make', coords: [122, 30], portCoords: [122, 30], capacity: 2000, processRate: 25 },
+    { id: 'india', name: 'India', type: 'make', coords: [72.8, 18.9], portCoords: [72.8, 18.9], capacity: 1750, processRate: 20 },
+    { id: 'vietnam', name: 'Vietnam', type: 'make', coords: [107, 10], portCoords: [107, 10], capacity: 1500, processRate: 15 },
+    { id: 'usa', name: 'USA', type: 'market', coords: [-90, 29], portCoords: [-90, 29], baseDemand: 25 },
+    { id: 'germany', name: 'Germany', type: 'market', coords: [8, 54], portCoords: [8, 54], baseDemand: 20 },
+    { id: 'japan', name: 'Japan', type: 'market', coords: [139.7, 35.6], portCoords: [139.7, 35.6], baseDemand: 15 }
 ];
 
 const CONFIG = {
@@ -753,8 +759,15 @@ const CONFIG = {
         text: '#f0f6fc'
     },
     transport: {
-        ship: { speed: 80, capacity: 500, costPerDispatch: 200, color: '#58a6ff' }, 
-        air: { speed: 1000, capacity: 100, costPerDispatch: 800, color: '#f0f6fc' }
+        ship: { speed: 80, capacity: 500, costPerDispatch: 200, color: '#58a6ff', intervalFactor: 2.5 }, 
+        air: { speed: 1000, capacity: 100, costPerDispatch: 800, color: '#f0f6fc', intervalFactor: 8.0 }
+    },
+    gameplay: {
+        dayDuration: 5.0, // Seconds per game day
+        qualityDecayMarket: 0.005,
+        qualityDecaySupply: 0.001,
+        upgradeBoost: 1.2,
+        eventFrequency: 0.01
     },
     storageCostPerUnit: 0.1,
     salePrice: 20,
@@ -765,36 +778,45 @@ const CONFIG = {
 };
 
 // --- MODULE: STATE ---
-let state = {
-    cash: CONFIG.startCash,
-    day: 1.0,
-    lastIntegerDay: 1,
-    timeAccumulator: 0,
-    speed: 0,
-    nodes: [],
-    routes: [],
-    units: [],
-    particles: [],
-    events: [], // Unified events: { id, type, targetId, magnitude, timeLeft, label, color, icon }
-    history: { cash: [], inventory: [], days: [], demand: [], production: [] },
-    totalSales: 0,
-    totalLostSales: 0,
-    yearlySales: 0,
-    yearlyCashStart: CONFIG.startCash,
-    selectedNodeId: null,
-    lastTick: 0,
-    transform: d3.zoomIdentity,
-    uiTimer: 0,
-    durationYears: 1,
-    currentYear: 1,
-    // System Objects
-    projection: null,
-    pathGenerator: null,
-    zoomBehavior: null,
-    ctx: null,
-    width: 0,
-    height: 0
-};
+function getInitialState() {
+    return {
+        cash: CONFIG.startCash,
+        day: 1.0,
+        lastIntegerDay: 1,
+        timeAccumulator: 0,
+        speed: 0,
+        preReportSpeed: 1,
+        nodes: [],
+        routes: [],
+        units: [],
+        particles: [],
+        events: [], 
+        notifications: [],
+        history: { cash: [], inventory: [], days: [], demand: [], production: [] },
+        totalSales: 0,
+        totalLostSales: 0,
+        totalLostRevenue: 0,
+        yearlySales: 0,
+        yearlyLostSales: 0,
+        yearlyLostRevenue: 0,
+        yearlyCashStart: CONFIG.startCash,
+        selectedNodeId: null,
+        lastTick: 0,
+        transform: d3.zoomIdentity,
+        uiTimer: 0,
+        durationYears: 1,
+        currentYear: 1,
+        // System Objects
+        projection: null,
+        pathGenerator: null,
+        zoomBehavior: null,
+        ctx: null,
+        width: 0,
+        height: 0
+    };
+}
+
+let state = getInitialState();
 
 // --- MODULE: UTILS ---
 const Utils = {
@@ -834,6 +856,7 @@ function init() {
             .attr("stroke-width", 0.5);
         
         initGameLogic();
+        setDuration(1); // Initialize duration UI
         setSpeed(0); 
         
         document.getElementById('dashboard-modal').style.display = 'none';
@@ -904,14 +927,12 @@ function createRoute(fromNode, toNode, type) {
     if (type === 'air') {
         rawPoints = [fromNode.coords, toNode.coords];
     } else {
-        // Use portCoords for sea lanes to avoid starting/ending inland
         const start = fromNode.portCoords || fromNode.coords;
         const end = toNode.portCoords || toNode.coords;
         rawPoints = getShipPath(start, end);
     }
     
     const pathCoords = densifyPath(rawPoints, 0.005);
-    
     let totalVisualDist = 0;
     const segmentDists = [];
     
@@ -937,14 +958,10 @@ function createRoute(fromNode, toNode, type) {
     const speedPx = CONFIG.transport[type].speed * 0.04; 
     const travelTimeMs = (totalVisualDist / speedPx) * 1000;
 
-    let targetDemand = 10; 
-    if (toNode.type === 'market') targetDemand = toNode.baseDemand;
-    else if (toNode.type === 'make') targetDemand = toNode.processRate;
+    let targetDemand = toNode.type === 'market' ? toNode.baseDemand : (toNode.type === 'make' ? toNode.processRate : 10);
+    const intervalFactor = CONFIG.transport[type].intervalFactor;
 
-    const capacity = CONFIG.transport[type].capacity;
-    const typeFactor = type === 'ship' ? 2.5 : 8.0; 
-
-    let interval = (capacity / Math.max(1, targetDemand)) * 1000 * typeFactor;
+    let interval = (CONFIG.transport[type].capacity / Math.max(1, targetDemand)) * 1000 * intervalFactor;
     interval = Math.max(2500, Math.min(150000, interval));
 
     return {
@@ -981,10 +998,10 @@ function findRoute(fromId, toId, type) {
 }
 
 function getShipPath(start, end) {
-    const sLon = start[0], sLat = start[1];
-    const eLon = end[0], eLat = end[1];
+    const [sLon, sLat] = start;
+    const [eLon, eLat] = end;
     
-    const getR = (lon, lat) => {
+    const getRegion = (lon, lat) => {
         if (lon < -30) return 'americas';
         if (lon >= -30 && lon < 50 && lat > 20) return 'europe';
         if (lon >= -20 && lon < 60 && lat <= 20) return 'africa';
@@ -992,89 +1009,66 @@ function getShipPath(start, end) {
         return 'unknown';
     };
 
-    const sR = getR(sLon, sLat), eR = getR(eLon, eLat);
+    const sR = getRegion(sLon, sLat), eR = getRegion(eLon, eLat);
     const pair = [sR, eR].sort().join('-'); 
     const isWestAsia = lon => lon < 95;
 
-        // 1. Asia <-> Asia
-        if (pair === 'asia-asia') {
-            if ((isWestAsia(sLon) && !isWestAsia(eLon)) || (!isWestAsia(sLon) && isWestAsia(eLon))) {
-                const westPoint = sLon < eLon ? start : end;
-                const eastPoint = sLon < eLon ? end : start;
-                const targetLon = eastPoint[0];
-                
-                let p = [WAYPOINTS.sriLanka.coords, WAYPOINTS.malacca.coords];
-                if (targetLon > 110) p.push(WAYPOINTS.southChinaSea.coords);
-                if (targetLon > 125) p.push(WAYPOINTS.taiwan.coords); // Only for Japan/Far East
-                
-                return sLon < eLon ? [start, ...p, end] : [start, ...p.reverse(), end];
-            }
+    // 1. Asia <-> Asia
+    if (pair === 'asia-asia') {
+        if ((isWestAsia(sLon) && !isWestAsia(eLon)) || (!isWestAsia(sLon) && isWestAsia(eLon))) {
+            let p = [WAYPOINTS.sriLanka.coords, WAYPOINTS.malacca.coords];
+            const asianDestLon = sLon < eLon ? eLon : sLon;
+            if (asianDestLon > 110) p.push(WAYPOINTS.southChinaSea.coords);
+            if (asianDestLon > 125) p.push(WAYPOINTS.taiwan.coords);
+            return sLon < eLon ? [start, ...p, end] : [start, ...p.reverse(), end];
         }
-    
-        // 2. Americas <-> Asia (e.g., India <-> USA, Brazil <-> China)
-        if (pair === 'americas-asia') {
-            const asianLon = sR === 'asia' ? sLon : eLon;
-            const americasPoint = sR === 'americas' ? start : end;
-            const isBrazil = americasPoint[1] < 0; 
-            const isNorthAm = americasPoint[1] > 0;
-            
-            if (isWestAsia(asianLon)) {
-                if (isBrazil) {
-                    let p = [WAYPOINTS.gibraltar.coords, WAYPOINTS.suez.coords, WAYPOINTS.babAlMandab.coords, WAYPOINTS.arabianSea.coords];
-                    return sR === 'americas' ? [start, ...p, end] : [start, ...p.reverse(), end];
-                } else {
-                    if (sR === 'americas') {
-                        // USA to West Asia: Cuba -> Caribbean -> Canary -> Gibraltar -> Suez
-                        let p = [WAYPOINTS.cubaPass.coords, WAYPOINTS.caribbeanGate.coords, WAYPOINTS.canaryPass.coords, WAYPOINTS.gibraltar.coords, WAYPOINTS.suez.coords, WAYPOINTS.babAlMandab.coords, WAYPOINTS.arabianSea.coords];
-                        return [start, ...p, end];
-                    } else {
-                        // West Asia to USA: Suez -> Gibraltar -> Canary -> Caribbean -> Cuba
-                        let p = [WAYPOINTS.arabianSea.coords, WAYPOINTS.babAlMandab.coords, WAYPOINTS.suez.coords, WAYPOINTS.gibraltar.coords, WAYPOINTS.canaryPass.coords, WAYPOINTS.caribbeanGate.coords, WAYPOINTS.cubaPass.coords];
-                        return [start, ...p, end];
-                    }
-                }
-            } else {
-                            if (isBrazil) {
-                                let p = [WAYPOINTS.capeGoodHope.coords, WAYPOINTS.sriLanka.coords, WAYPOINTS.malacca.coords];
-                                if (asianLon > 115) p.push(WAYPOINTS.southChinaSea.coords);
-                                if (asianLon > 130) p.push(WAYPOINTS.taiwan.coords);
-                                return sR === 'americas' ? [start, ...p, end] : [start, ...p.reverse(), end];
-                            }
-                 else {
-                    const p = [WAYPOINTS.taiwan.coords, WAYPOINTS.hawaii.coords, WAYPOINTS.panama.coords];
-                    return sR === 'asia' ? [start, ...p, end] : [start, ...p.reverse(), end];
-                }
-            }
-        }
-    
-    
+    }
 
-    // 3. Asia <-> Europe (Suez Corridor)
+    // 2. Americas <-> Asia
+    if (pair === 'americas-asia') {
+        const asianLon = sR === 'asia' ? sLon : eLon;
+        const isBrazil = (sR === 'americas' ? sLat : eLat) < 0;
+        
+        if (isBrazil) {
+            let p = [WAYPOINTS.capeGoodHope.coords, WAYPOINTS.capeAgulhas.coords, WAYPOINTS.mozambiqueChannel.coords];
+            if (isWestAsia(asianLon)) {
+                p.push(WAYPOINTS.seychelles.coords, WAYPOINTS.arabianSea.coords);
+            } else {
+                if (asianLon > 85) p.push(WAYPOINTS.sriLanka.coords);
+                if (asianLon > 105) p.push(WAYPOINTS.malacca.coords);
+                if (asianLon > 115) p.push(WAYPOINTS.southChinaSea.coords);
+                if (asianLon > 130) p.push(WAYPOINTS.taiwan.coords);
+            }
+            return sR === 'americas' ? [start, ...p, end] : [start, ...p.reverse(), end];
+        }
+
+        if (isWestAsia(asianLon)) {
+            let p = [WAYPOINTS.cubaPass.coords, WAYPOINTS.caribbeanGate.coords, WAYPOINTS.canaryPass.coords, WAYPOINTS.gibraltar.coords, WAYPOINTS.suez.coords, WAYPOINTS.babAlMandab.coords, WAYPOINTS.arabianSea.coords];
+            return sR === 'americas' ? [start, ...p, end] : [start, ...p.reverse(), end];
+        } else {
+            const p = [WAYPOINTS.taiwan.coords, WAYPOINTS.hawaii.coords, WAYPOINTS.panama.coords];
+            return sR === 'asia' ? [start, ...p, end] : [start, ...p.reverse(), end];
+        }
+    }
+
+    // 3. Asia <-> Europe (Suez)
     if (pair === 'asia-europe') {
         const asianPoint = sR === 'asia' ? start : end;
         const euroPoint = sR === 'europe' ? start : end;
         const lon = asianPoint[0];
-        
         let p = [];
+        
         if (sR === 'asia') {
-            // Westbound: Only include waypoints that are WEST of the starting point
             if (lon > 125) p.push(WAYPOINTS.taiwan.coords);
             if (lon > 115) p.push(WAYPOINTS.southChinaSea.coords);
             if (lon > 105) p.push(WAYPOINTS.malacca.coords);
             if (lon > 85) p.push(WAYPOINTS.sriLanka.coords);
-            p.push(WAYPOINTS.arabianSea.coords);
-            p.push(WAYPOINTS.babAlMandab.coords);
-            p.push(WAYPOINTS.suez.coords);
-            p.push(WAYPOINTS.gibraltar.coords);
-            if (euroPoint[1] > 45) p.push(WAYPOINTS.dover.coords);
+            p.push(WAYPOINTS.arabianSea.coords, WAYPOINTS.babAlMandab.coords, WAYPOINTS.suez.coords, WAYPOINTS.gibraltar.coords);
+            if (euroPoint[1] > 40) p.push(WAYPOINTS.portugalWest.coords, WAYPOINTS.dover.coords);
             return [start, ...p, end];
         } else {
-            // Eastbound: Only include waypoints that are WEST of the destination
-            if (sLat > 45) p.push(WAYPOINTS.dover.coords);
-            p.push(WAYPOINTS.gibraltar.coords);
-            p.push(WAYPOINTS.suez.coords);
-            p.push(WAYPOINTS.babAlMandab.coords);
-            p.push(WAYPOINTS.arabianSea.coords);
+            if (euroPoint[1] > 40) p.push(WAYPOINTS.dover.coords, WAYPOINTS.portugalWest.coords);
+            p.push(WAYPOINTS.gibraltar.coords, WAYPOINTS.suez.coords, WAYPOINTS.babAlMandab.coords, WAYPOINTS.arabianSea.coords);
             if (lon > 85) p.push(WAYPOINTS.sriLanka.coords);
             if (lon > 105) p.push(WAYPOINTS.malacca.coords);
             if (lon > 115) p.push(WAYPOINTS.southChinaSea.coords);
@@ -1085,41 +1079,32 @@ function getShipPath(start, end) {
 
     // 4. Africa <-> Asia
     if (pair === 'africa-asia') {
-        const asianPoint = sR === 'asia' ? start : end;
-        const africanPoint = sR === 'africa' ? start : end;
-        const lon = asianPoint[0];
-        
+        const asianLon = sR === 'asia' ? sLon : eLon;
         let p = [];
         if (sR === 'africa') {
-            if (start[1] > -30 && start[0] < 20) p.push(WAYPOINTS.namibiaCoast.coords);
-            if (start[1] > -33) p.push(WAYPOINTS.capeGoodHope.coords);
-            
-            // Only go to Arabian Sea if destination is West Asia (India)
-            if (isWestAsia(lon)) p.push(WAYPOINTS.arabianSea.coords);
-            
-            if (lon > 85) p.push(WAYPOINTS.sriLanka.coords);
-            if (lon > 105) p.push(WAYPOINTS.malacca.coords);
-            if (lon > 115) p.push(WAYPOINTS.southChinaSea.coords);
-            if (lon > 130) p.push(WAYPOINTS.taiwan.coords);
+            if (sLat > -30 && sLon < 20) p.push(WAYPOINTS.namibiaCoast.coords);
+            p.push(WAYPOINTS.capeGoodHope.coords, WAYPOINTS.capeAgulhas.coords, WAYPOINTS.mozambiqueChannel.coords);
+            if (isWestAsia(asianLon)) p.push(WAYPOINTS.seychelles.coords, WAYPOINTS.arabianSea.coords);
+            if (asianLon > 85) p.push(WAYPOINTS.sriLanka.coords);
+            if (asianLon > 105) p.push(WAYPOINTS.malacca.coords);
+            if (asianLon > 115) p.push(WAYPOINTS.southChinaSea.coords);
+            if (asianLon > 130) p.push(WAYPOINTS.taiwan.coords);
             return [start, ...p, end];
         } else {
-            if (lon > 130) p.push(WAYPOINTS.taiwan.coords);
-            if (lon > 115) p.push(WAYPOINTS.southChinaSea.coords);
-            if (lon > 105) p.push(WAYPOINTS.malacca.coords);
-            if (lon > 85) p.push(WAYPOINTS.sriLanka.coords);
-            
-            // From West Asia origins, include Arabian Sea
-            if (isWestAsia(lon)) p.push(WAYPOINTS.arabianSea.coords);
-            
-            if (end[1] > -33) p.push(WAYPOINTS.capeGoodHope.coords);
-            if (end[1] > -30 && end[0] < 20) p.push(WAYPOINTS.namibiaCoast.coords);
+            if (asianLon > 130) p.push(WAYPOINTS.taiwan.coords);
+            if (asianLon > 115) p.push(WAYPOINTS.southChinaSea.coords);
+            if (asianLon > 105) p.push(WAYPOINTS.malacca.coords);
+            if (asianLon > 85) p.push(WAYPOINTS.sriLanka.coords);
+            if (isWestAsia(asianLon)) p.push(WAYPOINTS.arabianSea.coords, WAYPOINTS.seychelles.coords);
+            p.push(WAYPOINTS.mozambiqueChannel.coords, WAYPOINTS.capeAgulhas.coords, WAYPOINTS.capeGoodHope.coords);
+            if (eLat > -30 && eLon < 20) p.push(WAYPOINTS.namibiaCoast.coords);
             return [start, ...p, end];
         }
     }
 
     // 5. Americas <-> Europe
     if (pair === 'americas-europe') {
-        const p = sLat < 0 || eLat < 0 ? [WAYPOINTS.southAtlantic.coords, WAYPOINTS.azores.coords] : [WAYPOINTS.northAtlantic.coords, WAYPOINTS.azores.coords];
+        const p = [WAYPOINTS.azores.coords];
         return sR === 'americas' ? [start, ...p, end] : [start, ...p.reverse(), end];
     }
 
@@ -1127,17 +1112,14 @@ function getShipPath(start, end) {
     if (pair === 'africa-europe') {
         let p = [];
         if (sR === 'africa') {
-            // If starting from South Africa, go to Namibia first then North
-            if (start[1] < -30) p.push(WAYPOINTS.namibiaCoast.coords);
-            p.push(WAYPOINTS.westAfricaCoast.coords);
-            p.push(WAYPOINTS.gibraltar.coords);
-            if (end[1] > 45) p.push(WAYPOINTS.dover.coords);
+            if (sLat < -30) p.push(WAYPOINTS.namibiaCoast.coords);
+            p.push(WAYPOINTS.westAfricaCoast.coords, WAYPOINTS.gibraltar.coords);
+            if (eLat > 45) p.push(WAYPOINTS.portugalWest.coords, WAYPOINTS.dover.coords);
             return [start, ...p, end];
         } else {
-            if (start[1] > 45) p.push(WAYPOINTS.dover.coords);
-            p.push(WAYPOINTS.gibraltar.coords);
-            p.push(WAYPOINTS.westAfricaCoast.coords);
-            if (end[1] < -30) p.push(WAYPOINTS.namibiaCoast.coords);
+            if (sLat > 45) p.push(WAYPOINTS.dover.coords, WAYPOINTS.portugalWest.coords);
+            p.push(WAYPOINTS.gibraltar.coords, WAYPOINTS.westAfricaCoast.coords);
+            if (eLat < -30) p.push(WAYPOINTS.namibiaCoast.coords);
             return [start, ...p, end];
         }
     }
@@ -1148,104 +1130,115 @@ function getShipPath(start, end) {
 // --- MODULE: ECONOMY & LOGISTICS ENGINE ---
 function gameLoop(timestamp) {
     if (!state.lastTick) state.lastTick = timestamp;
-    const dt = ((timestamp - state.lastTick) / 1000) * state.speed;
+    const dt = (timestamp - state.lastTick) / 1000;
     state.lastTick = timestamp;
-    if (dt > 0) { 
-        updateEvents(dt);
-        updateEconomy(dt); 
-        updateUnits(dt); 
-        updateParticles(dt); 
+
+    updateParticles(dt);
+    
+    // Update system notifications life
+    for (let i = state.notifications.length - 1; i >= 0; i--) {
+        state.notifications[i].life -= dt;
+        if (state.notifications[i].life <= 0) state.notifications.splice(i, 1);
     }
+
+    if (state.speed > 0) {
+        const gameDt = dt * state.speed;
+        updateEconomy(gameDt); 
+        updateUnits(gameDt); 
+        updateEvents(gameDt);
+    }
+    
+    // Smooth UI Updates
+    state.uiTimer = (state.uiTimer || 0) + dt;
+    if (state.uiTimer > 0.2) { 
+        try {
+            updateUI(); 
+            updateDashboard(); 
+            renderHistoryCharts(); 
+        } catch (e) {
+            console.warn("UI Update Error:", e);
+        }
+        state.uiTimer = 0; 
+    }
+
     render();
     requestAnimationFrame(gameLoop);
 }
 
 function updateEvents(dt) {
-    // 1. Update existing events
     state.events.forEach(e => e.timeLeft -= dt);
     state.events = state.events.filter(e => e.timeLeft > 0);
 
-    // 2. Randomly trigger new events
-    if (Math.random() < 0.05 * dt) { // Approx every 20s
+    // Generation frequency adjusted for longer durations
+    if (Math.random() < CONFIG.gameplay.eventFrequency * dt) { 
         const rand = Math.random();
         if (rand < 0.4) { // Market Spike (Positive)
             const target = state.nodes.filter(n => n.type === 'market')[Math.floor(Math.random() * 3)];
             if (target) {
-                state.events.push({ id: `spike-${Date.now()}`, type: 'market_spike', targetId: target.id, magnitude: 2.5, timeLeft: 15.0, label: `${target.name} Demand Spike`, color: '#ffd700', icon: '🔥' });
+                state.events.push({ id: `spike-${Date.now()}`, type: 'market_spike', targetId: target.id, magnitude: 2.5, timeLeft: 150.0, label: `${target.name} Demand Spike`, color: '#ffd700', icon: '🔥' });
                 spawnParticle(state.projection(target.coords), "BOOM!", "#ffd700");
             }
         } else if (rand < 0.7) { // Production Crisis (Negative)
             const target = state.nodes.filter(n => n.type === 'supply')[Math.floor(Math.random() * 3)];
             if (target) {
-                state.events.push({ id: `disrupt-${Date.now()}`, type: 'prod_crisis', targetId: target.id, magnitude: 0.2, timeLeft: 12.0, label: `${target.name} Operation Halted`, color: '#f85149', icon: '⚠️' });
+                state.events.push({ id: `disrupt-${Date.now()}`, type: 'prod_crisis', targetId: target.id, magnitude: 0.2, timeLeft: 120.0, label: `${target.name} Operation Halted`, color: '#f85149', icon: '⚠️' });
                 spawnParticle(state.projection(target.coords), "CRISIS!", "#f85149");
             }
         } else { // Route Disruption (Negative)
             const activeRoutes = state.routes.filter(r => r.active);
             if (activeRoutes.length > 0) {
                 const target = activeRoutes[Math.floor(Math.random() * activeRoutes.length)];
-                state.events.push({ id: `route-${Date.now()}`, type: 'route_clog', targetId: target.id, magnitude: 5.0, timeLeft: 10.0, label: `Logistics Congestion`, color: '#f85149', icon: '⚓' });
+                const fromNode = state.nodes.find(n => n.id === target.from);
+                const toNode = state.nodes.find(n => n.id === target.to);
+                state.events.push({ 
+                    id: `route-${Date.now()}`, 
+                    type: 'route_clog', 
+                    targetId: target.id, 
+                    magnitude: 5.0, 
+                    timeLeft: 100.0, 
+                    label: `${fromNode.name}→${toNode.name} Slowdown`, 
+                    color: '#f85149', 
+                    icon: '⚓' 
+                });
             }
         }
     }
 }
 
 function updateEconomy(dt) {
+    const dayInc = dt / CONFIG.gameplay.dayDuration;
+    state.day += dayInc;
+
     if (state.day >= 365) { 
-        if (state.currentYear >= state.durationYears) {
-            endGame(); 
-            return; 
-        } else {
-            showYearlyReport();
-            return;
-        }
+        state.day = 365;
+        if (state.currentYear >= state.durationYears) endGame(); 
+        else showYearlyReport();
+        return; 
     }
 
-    state.day += dt * 0.2;
-    document.getElementById('time-display').innerText = `Day ${Math.floor(state.day)}`; 
+    document.getElementById('time-display').innerText = `Day ${state.day.toFixed(1)}`; 
     
+    // Day-based history and stats
     if (Math.floor(state.day) > state.lastIntegerDay) { 
         state.lastIntegerDay = Math.floor(state.day);
-        const totalInv = state.nodes.reduce((a,n) => a + n.inventory, 0);
-        const totalDemand = state.nodes.filter(n => n.type === 'market').reduce((a,n) => a + n.demand, 0);
-        const totalRaw = state.nodes.filter(n => n.type === 'supply').reduce((a,n) => a + n.production, 0);
-        const totalFactory = state.nodes.filter(n => n.type === 'make').reduce((a,n) => a + n.processRate, 0);
-        const totalProd = Math.min(totalRaw, totalFactory);
-
-        state.history.days.push(state.day);
-        state.history.cash.push(state.cash);
-        state.history.inventory.push(totalInv);
-        state.history.demand.push(totalDemand);
-        state.history.production.push(totalProd);
-        
-        if (state.history.days.length > 50) {
-            state.history.days.shift(); state.history.cash.shift(); state.history.inventory.shift(); state.history.demand.shift(); state.history.production.shift();
-        }
+        recordHistory();
     }
+
+    const dailyToPerSec = 1.0 / CONFIG.gameplay.dayDuration;
 
     state.nodes.forEach(node => {
         if (node.alert > 0) node.alert -= dt;
-        const dailyToPerSec = 1.0 / 5.0; 
 
         if (node.type === 'supply') {
             const prodEvent = state.events.find(e => e.targetId === node.id && e.type === 'prod_crisis');
             const prodMult = prodEvent ? prodEvent.magnitude : 1.0;
             const prodAmount = node.production * prodMult * dailyToPerSec * dt;
-            const costAmount = prodAmount * (node.id === 'sa' ? 4.0 : 2.0);
             
-            state.cash -= costAmount;
+            state.cash -= prodAmount * node.unitCost; // Use calculated unit cost
             node.inventory = Math.min(node.maxInventory, node.inventory + prodAmount);
-            
-            const baseCost = node.id === 'sa' ? 4.0 : 2.0;
-            const newTotal = node.inventory; 
-            const oldInv = Math.max(0, newTotal - prodAmount);
-            if (newTotal > 0) {
-                node.quality = (oldInv * node.quality + prodAmount * 1.0) / newTotal;
-                node.unitCost = (oldInv * node.unitCost + prodAmount * baseCost) / newTotal;
-            }
         }
         
-        const decayRate = node.type === 'market' ? 0.005 : 0.001;
+        const decayRate = node.type === 'market' ? CONFIG.gameplay.qualityDecayMarket : CONFIG.gameplay.qualityDecaySupply;
         if (node.inventory > 0) node.quality = Math.max(0.1, node.quality - dt * decayRate);
 
         if (node.type === 'market') {
@@ -1255,38 +1248,75 @@ function updateEconomy(dt) {
             
             const price = CONFIG.salePrice * (0.2 + 2.8 * Math.pow(node.quality, 2)) * spikeMult;
             const sell = Math.min(node.inventory, node.demand * dailyToPerSec * dt);
+            
             if (sell > 0) { 
-                node.inventory -= sell; state.cash += sell * price; state.totalSales += sell; 
+                node.inventory -= sell; 
+                state.cash += sell * price; 
+                state.totalSales += sell; 
+                state.yearlySales += sell; 
                 if (Math.random() < 0.05) {
                      let color = node.quality > 0.8 ? '#3fb950' : (node.quality > 0.5 ? '#dbab09' : '#f85149');
                      spawnParticle(state.projection(node.coords), `+$${Math.floor(sell*price)}`, color); 
                 }
             } else if (node.demand > 0 && node.inventory < 1) {
-                state.totalLostSales += node.demand * dailyToPerSec * dt;
+                const missed = node.demand * dailyToPerSec * dt;
+                state.totalLostSales += missed;
+                state.yearlyLostSales += missed;
+                state.totalLostRevenue += missed * price;
+                state.yearlyLostRevenue += missed * price;
                 if (Math.random() < 0.02) node.alert = 3.0;
             }
         }
     });
     
+    updateLogistics(dt);
+}
+
+function recordHistory() {
+    const totalInv = state.nodes.reduce((a,n) => a + n.inventory, 0);
+    const totalDemand = state.nodes.filter(n => n.type === 'market').reduce((a,n) => a + n.demand, 0);
+    const totalRaw = state.nodes.filter(n => n.type === 'supply').reduce((a,n) => a + n.production, 0);
+    const totalFactory = state.nodes.filter(n => n.type === 'make').reduce((a,n) => a + n.processRate, 0);
+    const totalProd = Math.min(totalRaw, totalFactory);
+
+    const globalDay = ((state.currentYear - 1) * 365) + state.day;
+    state.history.days.push(globalDay);
+    state.history.cash.push(state.cash);
+    state.history.inventory.push(totalInv);
+    state.history.demand.push(totalDemand);
+    state.history.production.push(totalProd);
+    
+    if (state.history.days.length > 50) {
+        state.history.days.shift(); 
+        state.history.cash.shift(); 
+        state.history.inventory.shift(); 
+        state.history.demand.shift(); 
+        state.history.production.shift();
+    }
+}
+
+function updateLogistics(dt) {
     state.routes.forEach(route => { 
         if (route.active) { 
             let tickRate = 1.0;
             const clogEvent = state.events.find(e => e.targetId === route.id && e.type === 'route_clog');
             const toNode = state.nodes.find(n => n.id === route.to);
             
-            if (clogEvent) tickRate = 1.0 / clogEvent.magnitude; // Slow down
-            else if (route.type === 'air' && toNode.type === 'market') {
+            if (clogEvent) {
+                tickRate = 1.0 / clogEvent.magnitude;
+            } else if (route.type === 'air' && toNode.type === 'market') {
                 const isSpiking = state.events.some(e => e.targetId === toNode.id && e.type === 'market_spike');
                 if (isSpiking) tickRate = 20.0; 
                 else if (toNode.inventory < toNode.maxInventory * 0.15) tickRate = 5.0; 
             }
+
             route.timer += dt * 1000 * tickRate; 
-            if (route.timer >= route.interval) { route.timer = 0; dispatchUnit(route); } 
+            if (route.timer >= route.interval) { 
+                route.timer = 0; 
+                dispatchUnit(route); 
+            } 
         } 
     });
-    
-    state.uiTimer = (state.uiTimer || 0) + dt;
-    if (state.uiTimer > 0.2) { updateUI(); updateDashboard(); state.uiTimer = 0; }
 }
 
 function dispatchUnit(route) {
@@ -1330,7 +1360,16 @@ function updateUnits(dt) {
     for (let i = state.units.length - 1; i >= 0; i--) {
         const u = state.units[i];
         const route = state.routes.find(r => r.id === u.routeId);
-        const speedPx = CONFIG.transport[u.type].speed * 0.04;
+        if (!route) continue;
+
+        let speedPx = CONFIG.transport[u.type].speed * 0.04;
+        
+        // Apply slowdown if there is a clog event on this route
+        const clogEvent = state.events.find(e => e.targetId === route.id && e.type === 'route_clog');
+        if (clogEvent) {
+            speedPx /= clogEvent.magnitude; // Slow down movement speed
+        }
+
         const dist = Math.max(1, route.totalVisualDistance);
         u.progress += (speedPx * dt) / dist;
 
@@ -1383,16 +1422,29 @@ function render() {
             const hasUnits = units.some(u => u.routeId === r.id);
             if (!r.active && !hasUnits) return;
             
+            const clogEvent = events.find(e => e.targetId === r.id && e.type === 'route_clog');
+            
             ctx.beginPath();
             state.pathGenerator.context(ctx)({type: "LineString", coordinates: r.pathCoords});
             
-            const baseColor = r.type === 'air' ? CONFIG.colors.airPath : CONFIG.colors.seaPath;
+            let baseColor = r.type === 'air' ? CONFIG.colors.airPath : CONFIG.colors.seaPath;
+            let lineWidth = (r.type === 'air' ? 1.5 : 2) / transform.k;
+            
+            if (clogEvent) {
+                baseColor = '#f85149';
+                lineWidth *= 2.5;
+                // Add a glowing effect for the clog
+                ctx.shadowBlur = 10 / transform.k;
+                ctx.shadowColor = '#f85149';
+            }
+            
             ctx.strokeStyle = baseColor;
-            ctx.lineWidth = (r.type === 'air' ? 1.5 : 2) / transform.k;
+            ctx.lineWidth = lineWidth;
             
             if (r.type === 'air') ctx.setLineDash([4/transform.k, 6/transform.k]);
             ctx.stroke(); 
             ctx.setLineDash([]);
+            ctx.shadowBlur = 0; // Reset shadow
             
             state.pathGenerator.context(null); 
         });
@@ -1493,19 +1545,42 @@ function render() {
 }
 
 // --- MODULE: UI MANAGER ---
-function updateUI() {
-    document.getElementById('cash-display').innerText = Utils.fmtCurrency(state.cash);
-    if (state.selectedNodeId) updateSheetStats(state.nodes.find(n => n.id === state.selectedNodeId));
+function showNotification(text, color = 'var(--accent-blue)') {
+    state.notifications.push({ text, color, life: 4.0 });
+    // Limit active notifications
+    if (state.notifications.length > 3) state.notifications.shift();
+}
 
-    const area = document.getElementById('notification-area');
-    if (state.events.length === 0) {
-        area.innerHTML = '';
-    } else {
-        area.innerHTML = state.events.map(e => {
-            return `<div class="toast info" style="opacity:1; transform:none; animation:none; border-bottom: 2px solid ${e.color}; width: fit-content;">
-                <span class="toast-icon">${e.icon}</span><span><strong>${e.label}</strong> (${Math.ceil(e.timeLeft)}s)</span>
-            </div>`;
-        }).join('');
+function updateUI() {
+    try {
+        const cashEl = document.getElementById('cash-display');
+        if (cashEl) cashEl.innerText = Utils.fmtCurrency(state.cash);
+        
+        if (state.selectedNodeId) {
+            const node = state.nodes.find(n => n.id === state.selectedNodeId);
+            if (node) updateSheetStats(node);
+        }
+
+        const area = document.getElementById('notification-area');
+        if (!area) return;
+    
+    // Combine events and notifications for display
+    const eventToasts = state.events.map(e => `
+        <div class="toast info" style="opacity:1; transform:none; animation:none; border-bottom: 2px solid ${e.color}; width: fit-content;">
+            <span class="toast-icon">${e.icon}</span><span><strong>${e.label}</strong> (${(e.timeLeft * 0.2).toFixed(1)}d)</span>
+        </div>
+    `);
+
+    const notifyToasts = state.notifications.map(n => `
+        <div class="toast info" style="opacity:1; transform:none; animation:none; border-bottom: 2px solid ${n.color}; width: fit-content;">
+            <span class="toast-icon">ℹ️</span><span>${n.text}</span>
+        </div>
+    `);
+
+    // Limit to 4 total toasts
+    area.innerHTML = [...eventToasts, ...notifyToasts].slice(0, 4).join('');
+    } catch (e) {
+        console.warn("UI Update Error:", e);
     }
 }
 
@@ -1521,10 +1596,17 @@ d3.select("#map-svg").on("click", (event) => {
 });
 
 function openSheet(node) {
-    state.selectedNodeId = node.id;
-    const s = document.getElementById('selection-sheet');
-    document.getElementById('sheet-title').innerText = node.name;
-    document.getElementById('sheet-title').style.color = CONFIG.colors[node.type];
+    if (!node) return;
+    try {
+        state.selectedNodeId = node.id;
+        const s = document.getElementById('selection-sheet');
+        if (!s) return;
+        
+        const titleEl = document.getElementById('sheet-title');
+        if (titleEl) {
+            titleEl.innerText = node.name;
+            titleEl.style.color = CONFIG.colors[node.type];
+        }
 
     const isMobileLandscape = window.innerWidth > window.innerHeight && window.innerHeight <= 500;
     const isDesktop = window.innerWidth >= 900; 
@@ -1565,69 +1647,82 @@ function openSheet(node) {
     updateSheetStats(node);
     renderSheetRoutes(node);
     s.classList.add('active');
+    } catch (e) {
+        console.error("Error opening sheet:", e);
+    }
 }
 
 function updateSheetStats(n) {
-    const container = document.getElementById('sheet-stats');
-    const cost = Math.floor(CONFIG.upgradeCosts.base * Math.pow(CONFIG.upgradeCosts.multiplier, n.level - 1));
-    const canAfford = state.cash >= cost;
-    
-    if (container.getAttribute('data-node-id') !== n.id) {
-        container.setAttribute('data-node-id', n.id);
+    if (!n) return;
+    try {
+        const container = document.getElementById('sheet-stats');
+        if (!container) return;
         
-        let label = n.type === 'supply' ? "Production" : (n.type === 'make' ? "Throughput" : "Marketing");
-        let h = `<div class="stat-card" style="grid-column: span 2; display:flex; justify-content:space-between; align-items:center; padding: 10px 16px;" id="upgrade-card">
-                <div style="display:flex; flex-direction:column;">
-                    <div class="stat-card-label">${label}: Lv <span id="stat-lvl">${n.level}</span></div>
-                    <div class="stat-card-value" id="stat-cost">$${(cost/1000).toFixed(1)}k</div>
-                </div>
-                <button id="btn-upgrade" onclick="upgradeNode('${n.id}')" style="border:none; padding:8px 16px; border-radius:6px; font-weight:bold; white-space:nowrap; margin-left:10px;">UPGRADE</button>
-              </div>`;
+        const cost = Math.floor(CONFIG.upgradeCosts.base * Math.pow(CONFIG.upgradeCosts.multiplier, n.level - 1));
+        const canAfford = state.cash >= cost;
+        
+        if (container.getAttribute('data-node-id') !== n.id) {
+            container.setAttribute('data-node-id', n.id);
+            
+            let label = n.type === 'supply' ? "Production" : (n.type === 'make' ? "Throughput" : "Marketing");
+            let h = `<div class="stat-card" style="grid-column: span 2; display:flex; justify-content:space-between; align-items:center; padding: 10px 16px;" id="upgrade-card">
+                    <div style="display:flex; flex-direction:column;">
+                        <div class="stat-card-label">${label}: Lv <span id="stat-lvl">${n.level}</span></div>
+                        <div class="stat-card-value" id="stat-cost">$${(cost/1000).toFixed(1)}k</div>
+                    </div>
+                    <button id="btn-upgrade" onclick="upgradeNode('${n.id}')" style="border:none; padding:8px 16px; border-radius:6px; font-weight:bold; white-space:nowrap; margin-left:10px;">UPGRADE</button>
+                  </div>`;
 
-        h += `<div class="stat-card"><div class="stat-card-label">Avg. Unit Cost</div><div class="stat-card-value">$${n.unitCost.toFixed(2)}</div></div>`;
-        h += `<div class="stat-card"><div class="stat-card-label">Stock Level</div><div class="stat-card-value"><span id="stat-stock">${Math.floor(n.inventory)}</span> / <span id="stat-max">${Math.floor(n.maxInventory)}</span></div></div>`;
+            h += `<div class="stat-card"><div class="stat-card-label">Avg. Unit Cost</div><div class="stat-card-value">$${n.unitCost.toFixed(2)}</div></div>`;
+            h += `<div class="stat-card"><div class="stat-card-label">Stock Level</div><div class="stat-card-value"><span id="stat-stock">${Math.floor(n.inventory)}</span> / <span id="stat-max">${Math.floor(n.maxInventory)}</span></div></div>`;
+            
+            if (n.type === 'market') {
+                h += `<div class="stat-card"><div class="stat-card-label">Freshness</div><div class="stat-card-value"><span id="stat-fresh-val">0%</span> <span id="stat-fresh-text" style="font-size:12px; opacity:0.8">-</span></div></div>`;
+                h += `<div class="stat-card"><div class="stat-card-label">Price</div><div class="stat-card-value" style="color:var(--accent-green)"><span id="stat-price-val">$0</span></div></div>`;
+                h += `<div class="stat-card"><div class="stat-card-label">Demand</div><div class="stat-card-value" style="color:var(--accent-green)"><span id="stat-rate">${n.demand.toFixed(1)}</span> /d</div></div>`;
+            }
+            else h += `<div class="stat-card"><div class="stat-card-label">Rate</div><div class="stat-card-value"><span id="stat-rate">${(n.type==='supply'?n.production:n.processRate).toFixed(1)}</span> /d</div></div>`;
+            
+            container.innerHTML = h;
+        }
+
+        const lvlEl = document.getElementById('stat-lvl');
+        if (lvlEl) lvlEl.innerText = n.level;
+        const costEl = document.getElementById('stat-cost');
+        if (costEl) costEl.innerText = '$' + (cost/1000).toFixed(1) + 'k';
+        const stockEl = document.getElementById('stat-stock');
+        if (stockEl) stockEl.innerText = Math.floor(n.inventory);
+        const maxEl = document.getElementById('stat-max');
+        if (maxEl) maxEl.innerText = Math.floor(n.maxInventory);
         
+        const rateEl = document.getElementById('stat-rate');
+        if (rateEl) rateEl.innerText = (n.type==='market'?n.demand:n.type==='supply'?n.production:n.processRate).toFixed(1);
+
         if (n.type === 'market') {
-            h += `<div class="stat-card"><div class="stat-card-label">Freshness</div><div class="stat-card-value"><span id="stat-fresh-val">0%</span> <span id="stat-fresh-text" style="font-size:12px; opacity:0.8">-</span></div></div>`;
-            h += `<div class="stat-card"><div class="stat-card-label">Price</div><div class="stat-card-value" style="color:var(--accent-green)"><span id="stat-price-val">$0</span></div></div>`;
-            h += `<div class="stat-card"><div class="stat-card-label">Demand</div><div class="stat-card-value" style="color:var(--accent-green)"><span id="stat-rate">${n.demand.toFixed(1)}</span> /d</div></div>`;
+            const spike = (state.events || []).find(e => e.targetId === n.id && e.type === 'market_spike');
+            const spikeMult = spike ? spike.magnitude : 1;
+            const currentPrice = CONFIG.salePrice * (0.2 + 2.8 * Math.pow(n.quality, 2)) * spikeMult;
+            const freshVal = document.getElementById('stat-fresh-val'), freshText = document.getElementById('stat-fresh-text'), priceVal = document.getElementById('stat-price-val');
+            
+            if (n.inventory < 1) {
+                if (freshVal) freshVal.innerText = "-";
+                if (freshText) freshText.innerText = "OUT OF STOCK";
+                if (priceVal) priceVal.innerText = "-";
+            } else {
+                const q = n.quality;
+                const qColor = q > 0.8 ? '#3fb950' : (q > 0.4 ? '#dbab09' : '#f85149');
+                if (freshVal) { freshVal.innerText = (q*100).toFixed(0) + '%'; freshVal.parentElement.style.color = qColor; }
+                if (freshText) freshText.innerText = q > 0.85 ? 'PREMIUM' : (q > 0.6 ? 'FRESH' : 'NORMAL');
+                if (priceVal) priceVal.innerText = '$' + currentPrice.toFixed(1);
+            }
         }
-        else h += `<div class="stat-card"><div class="stat-card-label">Rate</div><div class="stat-card-value"><span id="stat-rate">${(n.type==='supply'?n.production:n.processRate).toFixed(1)}</span> /d</div></div>`;
-        
-        container.innerHTML = h;
+
+        const btn = document.getElementById('btn-upgrade'), card = document.getElementById('upgrade-card');
+        if (btn) { btn.style.background = canAfford ? 'var(--accent-green)' : '#30363d'; btn.style.opacity = canAfford ? 1 : 0.5; }
+        if (card) card.style.background = canAfford ? 'rgba(63, 185, 80, 0.15)' : 'rgba(255,255,255,0.05)';
+    } catch (e) {
+        console.warn("Panel Stats Error:", e);
     }
-
-    document.getElementById('stat-lvl').innerText = n.level;
-    document.getElementById('stat-cost').innerText = '$' + (cost/1000).toFixed(1) + 'k';
-    document.getElementById('stat-stock').innerText = Math.floor(n.inventory);
-    document.getElementById('stat-max').innerText = Math.floor(n.maxInventory);
-    
-    const rateEl = document.getElementById('stat-rate');
-    if (rateEl) rateEl.innerText = (n.type==='market'?n.demand:n.type==='supply'?n.production:n.processRate).toFixed(1);
-
-    if (n.type === 'market') {
-        const boom = state.booms.find(b => b.nodeId === n.id);
-        const boomMult = boom ? boom.mult : 1;
-        const currentPrice = CONFIG.salePrice * (0.2 + 2.8 * Math.pow(n.quality, 2)) * boomMult;
-        const freshVal = document.getElementById('stat-fresh-val'), freshText = document.getElementById('stat-fresh-text'), priceVal = document.getElementById('stat-price-val');
-        
-        if (n.inventory < 1) {
-            if (freshVal) freshVal.innerText = "-";
-            if (freshText) freshText.innerText = "OUT OF STOCK";
-            if (priceVal) priceVal.innerText = "-";
-        } else {
-            const q = n.quality;
-            const qColor = q > 0.8 ? '#3fb950' : (q > 0.4 ? '#dbab09' : '#f85149');
-            if (freshVal) { freshVal.innerText = (q*100).toFixed(0) + '%'; freshVal.parentElement.style.color = qColor; }
-            if (freshText) freshText.innerText = q > 0.85 ? 'PREMIUM' : (q > 0.6 ? 'FRESH' : 'NORMAL');
-            if (priceVal) priceVal.innerText = '$' + currentPrice.toFixed(1);
-        }
-    }
-
-    const btn = document.getElementById('btn-upgrade'), card = document.getElementById('upgrade-card');
-    btn.style.background = canAfford ? 'var(--accent-green)' : '#30363d';
-    btn.style.opacity = canAfford ? 1 : 0.5;
-    card.style.background = canAfford ? 'rgba(63, 185, 80, 0.15)' : 'rgba(255,255,255,0.05)';
 }
 
 function renderSheetRoutes(n) {
@@ -1689,9 +1784,11 @@ window.setDuration = (yrs) => {
 };
 
 function showYearlyReport() {
+    state.preReportSpeed = state.speed; // Remember current speed
     state.speed = 0;
     const rev = state.cash - state.yearlyCashStart;
-    const serviceLevel = state.yearlySales / (state.yearlySales + (state.totalLostSales / state.currentYear) || 1); // Simple proxy
+    const totalPotential = state.yearlySales + state.yearlyLostSales;
+    const serviceLevel = totalPotential > 0 ? state.yearlySales / totalPotential : 1.0;
     
     document.getElementById('report-year').innerText = state.currentYear;
     document.getElementById('report-revenue').innerText = Utils.fmtCurrency(rev);
@@ -1707,8 +1804,10 @@ window.continueGame = () => {
     state.lastIntegerDay = 1;
     state.yearlyCashStart = state.cash;
     state.yearlySales = 0;
+    state.yearlyLostSales = 0;
+    state.yearlyLostRevenue = 0;
     document.getElementById('year-display').innerText = `Year ${state.currentYear} / ${state.durationYears}`;
-    setSpeed(1);
+    setSpeed(state.preReportSpeed || 1); // Restore speed
 };
 
 window.adjustZoom = f => d3.select("#map-svg").transition().call(state.zoomBehavior.scaleBy, f);
@@ -1749,21 +1848,47 @@ function updateDashboard() {
 }
 
 function renderHistoryCharts() {
-    if (state.history.days.length < 2) {
-        document.getElementById('cash-chart').innerHTML = '<div style="padding:40px; text-align:center; color:var(--text-secondary);">Waiting for more data...</div>';
+    const modal = document.getElementById('history-modal');
+    if (modal.style.display === 'none' || state.history.days.length < 2) {
+        if (state.history.days.length < 2) document.getElementById('cash-chart').innerHTML = '<div style="padding:40px; text-align:center; color:var(--text-secondary);">Waiting for more data...</div>';
         return;
     }
-    const draw = (containerId, data, color, unit = "") => {
-        const container = document.getElementById(containerId); container.innerHTML = '';
-        const margin = {top: 20, right: 10, bottom: 25, left: 50}, w = container.clientWidth - margin.left - margin.right, h = container.clientHeight - margin.top - margin.bottom;
+
+    const draw = (containerId, datasets, colors, unit = "") => {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        container.innerHTML = '';
+        const margin = {top: 10, right: 10, bottom: 25, left: 45}, w = container.clientWidth - margin.left - margin.right, h = container.clientHeight - margin.top - margin.bottom;
+        
         const svg = d3.select(container).append("svg").attr("width", w + margin.left + margin.right).attr("height", h + margin.top + margin.bottom).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
-        const x = d3.scaleLinear().domain(d3.extent(state.history.days)).range([0, w]), y = d3.scaleLinear().domain([d3.min(data) * 0.9, d3.max(data) * 1.1]).range([h, 0]);
-        svg.append("g").attr("transform", `translate(0,${h})`).call(d3.axisBottom(x).ticks(5).tickFormat(d => `Day ${d}`));
-        svg.append("g").call(d3.axisLeft(y).ticks(5).tickFormat(d => d >= 1000 ? `${(d/1000).toFixed(0)}k` : d));
-        svg.append("path").datum(data).attr("fill", "none").attr("stroke", color).attr("stroke-width", 2).attr("d", d3.line().x((d, i) => x(state.history.days[i])).y(d => y(d)).curve(d3.curveMonotoneX));
+        
+        const x = d3.scaleLinear().domain(d3.extent(state.history.days)).range([0, w]);
+        
+        // Calculate Y domain across all datasets
+        let yMin = Infinity, yMax = -Infinity;
+        datasets.forEach(data => {
+            yMin = Math.min(yMin, d3.min(data));
+            yMax = Math.max(yMax, d3.max(data));
+        });
+        const y = d3.scaleLinear().domain([yMin * 0.9, yMax * 1.1]).range([h, 0]);
+
+        svg.append("g").attr("transform", `translate(0,${h})`).call(d3.axisBottom(x).ticks(5).tickFormat(d => `D${Math.floor(d)}`)).attr("color", "#8b949e");
+        svg.append("g").call(d3.axisLeft(y).ticks(5).tickFormat(d => d >= 1000 ? `${(d/1000).toFixed(0)}k` : d)).attr("color", "#8b949e");
+
+        datasets.forEach((data, i) => {
+            const line = d3.line().x((d, idx) => x(state.history.days[idx])).y(d => y(d)).curve(d3.curveMonotoneX);
+            svg.append("path").datum(data).attr("fill", "none").attr("stroke", colors[i]).attr("stroke-width", 2).attr("d", line);
+            
+            if (datasets.length === 1) { // Area fill for single lines
+                const area = d3.area().x((d, idx) => x(state.history.days[idx])).y0(h).y1(d => y(d)).curve(d3.curveMonotoneX);
+                svg.append("path").datum(data).attr("fill", colors[i]).attr("opacity", 0.1).attr("d", area);
+            }
+        });
     };
-    draw('cash-chart', state.history.cash, 'var(--accent-blue)', "Amount ($)");
-    draw('inv-chart', state.history.inventory, 'var(--accent-green)', "Quantity");
+
+    draw('cash-chart', [state.history.cash], ['var(--accent-blue)'], "Amount ($)");
+    draw('inv-chart', [state.history.inventory], ['var(--accent-green)'], "Quantity");
+    draw('balance-chart', [state.history.demand, state.history.production], ['var(--accent-red)', 'var(--accent-blue)'], "Rate");
 }
 
 window.upgradeNode = (id) => {
@@ -1771,22 +1896,39 @@ window.upgradeNode = (id) => {
     if (!node) return;
     const cost = Math.floor(CONFIG.upgradeCosts.base * Math.pow(CONFIG.upgradeCosts.multiplier, node.level - 1));
     if (state.cash >= cost) {
-        state.cash -= cost; node.level++;
-        if (node.type === 'supply') { node.production *= 1.2; node.maxInventory *= 1.2; }
-        else if (node.type === 'make') { 
-            node.processRate *= 1.2; node.maxInventory *= 1.2;
+        state.cash -= cost; 
+        node.level++;
+        
+        const boost = CONFIG.gameplay.upgradeBoost;
+        if (node.type === 'supply') { 
+            node.production *= boost; 
+            node.maxInventory *= boost; 
+        } else if (node.type === 'make') { 
+            node.processRate *= boost; 
+            node.maxInventory *= boost;
             state.routes.filter(r => r.to === node.id).forEach(r => {
-                r.interval = (CONFIG.transport[r.type].capacity / Math.max(1, node.processRate)) * 1000 * (r.type === 'ship' ? 2.5 : 8.0);
+                const factor = CONFIG.transport[r.type].intervalFactor;
+                r.interval = (CONFIG.transport[r.type].capacity / Math.max(1, node.processRate)) * 1000 * factor;
             });
+        } else if (node.type === 'market') { 
+            node.baseDemand *= boost; 
+            node.maxInventory *= boost; 
         }
-        else if (node.type === 'market') { node.baseDemand *= 1.2; node.maxInventory *= 1.2; }
-        spawnParticle(state.projection(node.coords), "UPGRADE!", "#ffd700"); updateUI(); openSheet(node);
+        
+        spawnParticle(state.projection(node.coords), "UPGRADE!", "#ffd700");
+        showNotification(`${node.name} Upgraded to Lv ${node.level}`, "#ffd700");
+        updateUI(); 
+        openSheet(node);
     }
 };
 
 window.startGame = () => { 
-    document.getElementById('title-screen').style.display = 'none'; 
-    document.getElementById('year-display').innerText = `Year ${state.currentYear} / ${state.durationYears}`;
+    const title = document.getElementById('title-screen');
+    if (title) title.style.display = 'none'; 
+    
+    const yearEl = document.getElementById('year-display');
+    if (yearEl) yearEl.innerText = `Year ${state.currentYear} / ${state.durationYears}`;
+    
     state.yearlyCashStart = state.cash;
     setSpeed(0); updateUI(); 
 };
@@ -1794,15 +1936,44 @@ window.startGame = () => {
 window.endGame = () => {
     state.speed = 0; document.getElementById('end-screen').style.display = 'flex';
     document.getElementById('final-cash').innerText = Utils.fmtCurrency(state.cash);
-    const avgInv = state.history.inventory.reduce((a,b)=>a+b,0) / (state.history.inventory.length || 1);
-    document.getElementById('final-turnover').innerText = (avgInv > 0 ? state.totalSales / avgInv : 0).toFixed(1) + 'x';
-    document.getElementById('final-fresh').innerText = (state.totalSales > 0 ? "DONE" : "-"); // Placeholder for final avg
+    
+    // 1. Avg Freshness at Markets
+    const markets = state.nodes.filter(n => n.type === 'market');
+    const avgFresh = markets.reduce((acc, m) => acc + m.quality, 0) / (markets.length || 1);
+    const freshEl = document.getElementById('final-fresh');
+    freshEl.innerText = (avgFresh * 100).toFixed(0) + '%';
+    freshEl.style.color = avgFresh > 0.8 ? 'var(--accent-green)' : (avgFresh > 0.5 ? 'var(--accent-yellow)' : 'var(--accent-red)');
+
+    // 2. Total Missed Sales (as currency)
+    document.getElementById('final-missed').innerText = Utils.fmtCurrency(state.totalLostRevenue);
+
+    // 3. Inventory Turnover = Total Sales / Avg Global Inventory
+    const histInv = state.history.inventory;
+    const avgInv = histInv.length > 0 ? histInv.reduce((a,b)=>a+b,0)/histInv.length : state.nodes.reduce((a,n)=>a+n.inventory,0);
+    const turnover = avgInv > 0 ? state.totalSales / avgInv : 0;
+    document.getElementById('final-turnover').innerText = turnover.toFixed(1) + 'x';
 };
 
 window.replayGame = () => { document.getElementById('end-screen').style.display = 'none'; resetState(); initGameLogic(); setSpeed(0); resetZoom(); updateUI(); document.getElementById('title-screen').style.display = 'flex'; };
 
 function resetState() {
-    state = { ...state, cash: CONFIG.startCash, day: 1.0, lastIntegerDay: 1, speed: 0, nodes: [], routes: [], units: [], particles: [], events: [], history: { cash: [], inventory: [], days: [], demand: [], production: [] }, totalSales: 0, totalLostSales: 0, yearlySales: 0, yearlyCashStart: CONFIG.startCash, selectedNodeId: null, lastTick: 0, uiTimer: 0, currentYear: 1 };
+    // Preserve system-critical objects before resetting
+    const sys = {
+        projection: state.projection,
+        pathGenerator: state.pathGenerator,
+        zoomBehavior: state.zoomBehavior,
+        ctx: state.ctx,
+        svg: state.svg,
+        g: state.g,
+        width: state.width,
+        height: state.height,
+        transform: d3.zoomIdentity // Reset zoom on replay
+    };
+
+    state = getInitialState();
+
+    // Restore system objects
+    Object.assign(state, sys);
 }
 
 init();
