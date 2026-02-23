@@ -784,7 +784,7 @@ const CONFIG = {
         eventFrequency: 0.01
     },
     storageCostPerUnit: 0.01,
-    salePrice: 32, // Increased base price
+    salePrice: 45, // Balanced for Phase 4 complexity
     upgradeCosts: {
         base: 5000,
         multiplier: 1.5,
@@ -1418,14 +1418,16 @@ function updateEconomy(dt) {
     state.nodes.forEach(node => {
         if (node.alert > 0) node.alert -= dt;
 
-        // Apply storage costs
-        if (node.inventory > 0.1) { // Only track storage if there is meaningful inventory
-            const storageCostTotal = node.inventory * CONFIG.storageCostPerUnit * dailyToPerSec * dt;
+        // Apply storage costs (Including component stock in factories for Phase 4)
+        const componentStock = (node.type === 'make' && node.inputs) ? Object.values(node.inputs).reduce((a, b) => a + b, 0) : 0;
+        const totalStockForStorage = node.inventory + componentStock;
+
+        if (totalStockForStorage > 0.1) {
+            const storageCostTotal = totalStockForStorage * CONFIG.storageCostPerUnit * dailyToPerSec * dt;
             state.cash -= storageCostTotal;
-            node.costs.storage += storageCostTotal / node.inventory;
+            node.costs.storage += storageCostTotal / totalStockForStorage;
             node.unitCost = Object.values(node.costs).reduce((a, b) => a + b, 0);
-        } else if (node.inventory <= 0.01) {
-            // Reset storage cost component if inventory is practically zero
+        } else if (totalStockForStorage <= 0.01) {
             node.costs.storage = 0;
         }
 
@@ -1452,7 +1454,7 @@ function updateEconomy(dt) {
             const automationFactor = Math.pow(CONFIG.investment.automation.costReduction, (node.levels.automation - 1));
             const rawCost = (node.baseCosts.raw || 0) * automationFactor; // Ensure baseCosts.raw is used
             
-            if (actualProd > 0 && state.cash > -10000) {
+            if (actualProd > 0 && state.cash > -50000) { // Allow more debt for production to prevent early freeze
                 // BUG FIX: Charge only the raw material cost
                 state.cash -= actualProd * rawCost;
                 node.inventory += actualProd;
@@ -1488,6 +1490,13 @@ function updateEconomy(dt) {
                 node.inventory += actualProd;
                 node.stalledDays = 0; // Reset stall counter
                 
+                // Charge manufacturing cost only when actually producing
+                const automationLevel = node.levels ? node.levels.automation : 1;
+                const automationFactor = Math.pow(CONFIG.investment.automation.costReduction, (automationLevel - 1));
+                const baseMakeCost = node.id === 'china' ? 8.0 : (node.id === 'vietnam' ? 6.0 : 10.0);
+                const makeCost = baseMakeCost * automationFactor;
+                state.cash -= actualProd * makeCost;
+
                 // Show production particle occasionally
                 if (Math.random() < 0.02) {
                     spawnParticle(state.projection(node.coords), "⚙️", "#f59e0b");
@@ -1666,7 +1675,7 @@ function updateUnits(dt) {
         if (u.progress >= 1) {
             const dest = state.nodes.find(n => n.id === route.to);
             if (dest.type === 'make') {
-                // Apply Automation Discount for Manufacturing
+                // Costs are now tracked but only charged during actual assembly in updateEconomy
                 const automationLevel = dest.levels ? dest.levels.automation : 1;
                 const automationFactor = Math.pow(CONFIG.investment.automation.costReduction, (automationLevel - 1));
                 const baseMakeCost = dest.id === 'china' ? 8.0 : (dest.id === 'vietnam' ? 6.0 : 10.0);
@@ -1677,7 +1686,6 @@ function updateUnits(dt) {
                 
                 // Update make cost tracking
                 dest.costs.make = makeCost;
-                state.cash -= u.cargo * makeCost; 
             }
 
             // Phase 4: Refined stock calculation for merging quality/costs
