@@ -1629,9 +1629,10 @@ function dispatchUnit(route) {
     let amount = Math.min(cfg.capacity, from.inventory);
     
     // Efficiency check: ships should only move if they have a decent load
-    const minLoad = route.type === 'ship' ? 100 : 10;
+    // Reduced for Phase 4 smaller scale
+    const minLoad = route.type === 'ship' ? 50 : 5;
     
-    if (amount >= minLoad && state.cash >= -5000) { // Allow slight debt for dispatching
+    if (amount >= minLoad && state.cash >= -50000) { // Balanced with new debt limit
         from.inventory -= amount; 
         
         const totalDispatchCost = cfg.costPerDispatch + (amount * cfg.costPerUnit);
@@ -2369,6 +2370,7 @@ window.updateInterval = (id, val) => {
     const r = state.routes.find(x => x.id === id);
     if (r) { 
         r.interval = val * CONFIG.gameplay.dayDuration * 1000; 
+        r.intervalDays = parseFloat(val); // Keep Days property in sync
         document.getElementById(`val-${id}`).innerText = val; 
         const ltEl = document.getElementById(`lt-${id}`);
         if (ltEl) {
@@ -2585,6 +2587,7 @@ window.investNode = (id, type) => {
                 state.routes.filter(r => r.to === node.id).forEach(r => {
                     const factor = CONFIG.transport[r.type].intervalFactor;
                     r.interval = (CONFIG.transport[r.type].capacity / Math.max(1, node.processRate)) * 1000 * factor;
+                    r.intervalDays = r.interval / 1000 / CONFIG.gameplay.dayDuration;
                 });
             } else if (node.type === 'market') { 
                 node.baseDemand *= boost; 
