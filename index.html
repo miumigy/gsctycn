@@ -2058,13 +2058,17 @@ function updateSheetStats(n) {
             let resColor = CONFIG.colors[n.type === 'supply' ? n.resourceType : (n.type === 'make' ? 'battery' : 'market')] || 'var(--text-primary)';
             
             // Define labels based on node type
-            const getInvLabel = (type) => {
+            const getInvDetails = (type) => {
+                const cfg = CONFIG.investment[type];
                 if (n.type === 'market') {
-                    if (type === 'production') return "Market Expansion";
-                    if (type === 'quality') return "Freshness Preservation";
-                    if (type === 'automation') return "Operational Efficiency";
+                    if (type === 'production') return { label: "Market Expansion", effect: `+${((cfg.boost-1)*100).toFixed(0)}% Demand` };
+                    if (type === 'quality') return { label: "Freshness Preservation", effect: `-${((1-cfg.decayReduction)*100).toFixed(0)}% Decay` };
+                    if (type === 'automation') return { label: "Operational Efficiency", effect: `-${((1-cfg.costReduction)*100).toFixed(0)}% OpEx` };
                 }
-                return CONFIG.investment[type].label;
+                if (type === 'production') return { label: "Production Rate", effect: `+${((cfg.boost-1)*100).toFixed(0)}% Output` };
+                if (type === 'quality') return { label: "Quality Control", effect: `-${((1-cfg.decayReduction)*100).toFixed(0)}% Decay` };
+                if (type === 'automation') return { label: "Automation", effect: `-${((1-cfg.costReduction)*100).toFixed(0)}% Unit Cost` };
+                return { label: cfg.label, effect: "" };
             };
 
             let invHTML = `<div class="stat-card" style="grid-column: span 2; background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0) 100%);">
@@ -2077,12 +2081,15 @@ function updateSheetStats(n) {
             
             ['production', 'quality', 'automation'].forEach(type => {
                 const cfg = CONFIG.investment[type];
-                const label = getInvLabel(type);
+                const { label, effect } = getInvDetails(type);
                 const lvl = (n.levels && n.levels[type]) ? n.levels[type] : 1;
                 invHTML += `<div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:6px 10px; border-radius:6px;">
                     <div style="display:flex; flex-direction:column;">
                         <span style="font-size:12px; font-weight:bold;">${label} <span style="font-weight:normal; opacity:0.7;" id="lvl-${type}">Lv.${lvl}</span></span>
-                        <span style="font-size:10px; color:var(--text-secondary);" id="roi-${type}">ROI: Calc...</span>
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <span style="font-size:10px; color:var(--accent-green); font-weight:bold;">${effect}</span>
+                            <span style="font-size:10px; color:var(--text-secondary);" id="roi-${type}">ROI: Calc...</span>
+                        </div>
                     </div>
                     <button id="btn-${type}" onclick="investNode('${n.id}', '${type}')" style="border:none; padding:4px 12px; border-radius:4px; font-size:11px; font-weight:bold; cursor:pointer;">${Utils.fmtCurrency(costs[type])}</button>
                 </div>`;
