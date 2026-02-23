@@ -2041,7 +2041,15 @@ function updateSheetStats(n) {
 
             // UNLOCKED NODE UI (Existing logic)
             // Build specialized investment UI
-            let invHTML = `<div class="stat-card" style="grid-column: span 2; display:flex; flex-direction:column; gap:8px;">
+            let resName = n.type === 'supply' ? n.resourceType.toUpperCase() : (n.type === 'make' ? 'BATTERY' : 'MARKET');
+            let resColor = CONFIG.colors[n.type === 'supply' ? n.resourceType : (n.type === 'make' ? 'battery' : 'market')] || 'var(--text-primary)';
+            
+            let invHTML = `<div class="stat-card" style="grid-column: span 2; background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0) 100%);">
+                <div style="font-size:10px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">Primary Output</div>
+                <div style="font-size:18px; font-weight:800; color:${resColor}; letter-spacing:0.5px;">${resName}</div>
+            </div>`;
+
+            invHTML += `<div class="stat-card" style="grid-column: span 2; display:flex; flex-direction:column; gap:8px;">
                 <div class="stat-card-label" style="margin-bottom:4px;">Strategic Investments</div>`;
             
             ['production', 'quality', 'automation'].forEach(type => {
