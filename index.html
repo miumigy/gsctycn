@@ -2093,7 +2093,7 @@ function updateSheetStats(n) {
                 h += `<div class="stat-card"><div class="stat-card-label">Price</div><div class="stat-card-value" style="color:var(--accent-green)"><span id="stat-price-val">$0</span></div></div>`;
                 h += `<div class="stat-card"><div class="stat-card-label">Demand</div><div class="stat-card-value" style="color:var(--accent-green)"><span id="stat-rate">${n.demand.toFixed(1)}</span> /d</div></div>`;
             }
-            else h += `<div class="stat-card"><div class="stat-card-label">Daily Speed</div><div class="stat-card-value"><span id="stat-rate">${(n.type==='supply'?n.production:n.processRate).toFixed(1)}</span> /d</div></div>`;
+            else h += `<div class="stat-card"><div class="stat-card-label">Daily Output</div><div class="stat-card-value"><span id="stat-rate">${(n.type==='supply'?n.production:n.processRate).toFixed(1)}</span> /d</div></div>`;
             
             if (n.type === 'make' && n.inputs) {
                 const capitalize = s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
