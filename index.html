@@ -742,15 +742,15 @@ const WAYPOINTS = {
 };
 
 const NODES_DATA = [
-    { id: 'brazil', name: 'Brazil', type: 'supply', coords: [-40, -20], portCoords: [-40, -20], production: 30, maxInventory: 1500, resourceType: 'lithium' },
-    { id: 'sa', name: 'South Africa', type: 'supply', coords: [18, -34], portCoords: [18, -34], production: 15, maxInventory: 800, resourceType: 'cobalt' },
-    { id: 'congo', name: 'Congo', type: 'supply', coords: [12, -6], portCoords: [12, -6], production: 15, maxInventory: 800, resourceType: 'cobalt' },
-    { id: 'china', name: 'China', type: 'make', coords: [122, 30], portCoords: [122, 30], capacity: 2000, processRate: 30, bom: { 'lithium': 1, 'cobalt': 1 } },
-    { id: 'india', name: 'India', type: 'make', coords: [72.8, 18.9], portCoords: [72.8, 18.9], capacity: 1500, processRate: 20, bom: { 'lithium': 1, 'cobalt': 1 } },
-    { id: 'vietnam', name: 'Vietnam', type: 'make', coords: [107, 10], portCoords: [107, 10], capacity: 1200, processRate: 15, bom: { 'lithium': 1, 'cobalt': 1 } },
-    { id: 'usa', name: 'USA', type: 'market', coords: [-90, 29], portCoords: [-90, 29], baseDemand: 12, maxInventory: 1000 },
-    { id: 'germany', name: 'Germany', type: 'market', coords: [8, 54], portCoords: [8, 54], baseDemand: 10, maxInventory: 800 },
-    { id: 'japan', name: 'Japan', type: 'market', coords: [139.7, 35.6], portCoords: [139.7, 35.6], baseDemand: 8, maxInventory: 600 },
+    { id: 'brazil', name: 'Brazil', type: 'supply', coords: [-40, -20], portCoords: [-40, -20], production: 40, maxInventory: 1500, resourceType: 'lithium' },
+    { id: 'sa', name: 'South Africa', type: 'supply', coords: [18, -34], portCoords: [18, -34], production: 20, maxInventory: 800, resourceType: 'cobalt' },
+    { id: 'congo', name: 'Congo', type: 'supply', coords: [12, -6], portCoords: [12, -6], production: 20, maxInventory: 800, resourceType: 'cobalt' },
+    { id: 'china', name: 'China', type: 'make', coords: [122, 30], portCoords: [122, 30], capacity: 2000, processRate: 40, bom: { 'lithium': 1, 'cobalt': 1 } },
+    { id: 'india', name: 'India', type: 'make', coords: [72.8, 18.9], portCoords: [72.8, 18.9], capacity: 1500, processRate: 25, bom: { 'lithium': 1, 'cobalt': 1 } },
+    { id: 'vietnam', name: 'Vietnam', type: 'make', coords: [107, 10], portCoords: [107, 10], capacity: 1200, processRate: 20, bom: { 'lithium': 1, 'cobalt': 1 } },
+    { id: 'usa', name: 'USA', type: 'market', coords: [-90, 29], portCoords: [-90, 29], baseDemand: 10, maxInventory: 1000 },
+    { id: 'germany', name: 'Germany', type: 'market', coords: [8, 54], portCoords: [8, 54], baseDemand: 8, maxInventory: 800 },
+    { id: 'japan', name: 'Japan', type: 'market', coords: [139.7, 35.6], portCoords: [139.7, 35.6], baseDemand: 6, maxInventory: 600 },
     
     // Phase 3: Unlockable Strategic Hubs
     { id: 'australia', name: 'Australia', type: 'supply', coords: [115.8, -32.0], portCoords: [115.8, -32.0], production: 30, maxInventory: 1500, locked: true, unlockCost: 25000, resourceType: 'lithium' }, // Perth
@@ -783,7 +783,7 @@ const CONFIG = {
         upgradeBoost: 1.2,
         eventFrequency: 0.01
     },
-    storageCostPerUnit: 0.005,
+    storageCostPerUnit: 0.002,
     salePrice: 65, // High margin for Phase 4
     upgradeCosts: {
         base: 5000,
