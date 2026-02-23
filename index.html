@@ -1902,6 +1902,12 @@ function updateUI() {
     try {
         const cashEl = document.getElementById('cash-display');
         if (cashEl) cashEl.innerText = Utils.fmtCurrency(state.cash);
+
+        const timeEl = document.getElementById('time-display');
+        if (timeEl) timeEl.innerText = `Day ${state.day.toFixed(1)}`;
+
+        const yearEl = document.getElementById('year-display');
+        if (yearEl) yearEl.innerText = `Year ${state.currentYear} / ${state.durationYears}`;
         
         if (state.selectedNodeId) {
             const node = state.nodes.find(n => n.id === state.selectedNodeId);
