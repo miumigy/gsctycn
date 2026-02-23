@@ -738,7 +738,9 @@ const WAYPOINTS = {
     bayOfBengal: { coords: [90, 15] },
     seychelles: { coords: [55.5, -4.6] },
     mauritius: { coords: [57.5, -20.2] },
-    mozambiqueChannel: { coords: [40.0, -15.0] }
+    mozambiqueChannel: { coords: [40.0, -15.0] },
+    tasmanSea: { coords: [160.0, -40.0] }, // New waypoint for AU-US route
+    brazilCoast: { coords: [-32.0, -5.0] } // Clear Brazil bulge
 };
 
 const NODES_DATA = [
@@ -750,7 +752,13 @@ const NODES_DATA = [
     { id: 'vietnam', name: 'Vietnam', type: 'make', coords: [107, 10], portCoords: [107, 10], capacity: 1500, processRate: 15 },
     { id: 'usa', name: 'USA', type: 'market', coords: [-90, 29], portCoords: [-90, 29], baseDemand: 25 },
     { id: 'germany', name: 'Germany', type: 'market', coords: [8, 54], portCoords: [8, 54], baseDemand: 20 },
-    { id: 'japan', name: 'Japan', type: 'market', coords: [139.7, 35.6], portCoords: [139.7, 35.6], baseDemand: 15 }
+    { id: 'japan', name: 'Japan', type: 'market', coords: [139.7, 35.6], portCoords: [139.7, 35.6], baseDemand: 15 },
+    
+    // Phase 3: Unlockable Strategic Hubs
+    { id: 'australia', name: 'Australia', type: 'supply', coords: [115.8, -32.0], portCoords: [115.8, -32.0], production: 30, maxInventory: 3000, locked: true, unlockCost: 25000 }, // Perth
+    { id: 'mexico', name: 'Mexico', type: 'make', coords: [-96.1, 19.2], portCoords: [-96.1, 19.2], capacity: 1800, processRate: 22, locked: true, unlockCost: 40000 }, // Veracruz
+    { id: 'uk', name: 'UK', type: 'market', coords: [0.1, 51.5], portCoords: [0.1, 51.5], baseDemand: 18, locked: true, unlockCost: 30000 }, // London
+    { id: 'nigeria', name: 'Nigeria', type: 'market', coords: [3.4, 6.5], portCoords: [3.4, 6.5], baseDemand: 25, locked: true, unlockCost: 35000 } // Lagos
 ];
 
 const CONFIG = {
@@ -778,7 +786,13 @@ const CONFIG = {
     salePrice: 32, // Increased base price
     upgradeCosts: {
         base: 5000,
-        multiplier: 1.5
+        multiplier: 1.5,
+        roiThreshold: 365 
+    },
+    investment: {
+        production: { cost: 5000, boost: 1.2, label: "Capacity" },
+        quality: { cost: 8000, decayReduction: 0.8, label: "Quality Control" },
+        automation: { cost: 12000, costReduction: 0.85, label: "Automation" }
     }
 };
 
@@ -910,19 +924,44 @@ function initGameLogic() {
         }
         const unitCost = r + t + m;
 
+        // Phase 3: Handle locked nodes
+        if (n.locked) {
+            return {
+                ...n,
+                inventory: 0,
+                maxInventory: n.maxInventory || 1500,
+                demand: 0, // Demand activates on unlock
+                level: 1,
+                levels: { production: 1, quality: 1, automation: 1 },
+                quality: 1.0,
+                baseQualityDecay: n.type === 'market' ? CONFIG.gameplay.qualityDecayMarket : CONFIG.gameplay.qualityDecaySupply,
+                costs: { raw: r, transport: t, make: m, storage: 0 },
+                baseCosts: { raw: r, make: m },
+                unitCost: unitCost,
+                phase: Math.random() * Math.PI * 2,
+                screenPos: state.projection(n.coords),
+                alert: 0,
+                locked: true,
+                unlockCost: n.unlockCost || 30000
+            };
+        }
+
         return {
             ...n,
             inventory: n.type === 'supply' ? 500 : 100, 
             maxInventory: n.maxInventory || n.capacity || 1500,
             demand: 0,
-            level: 1, 
+            level: 1, // Legacy level tracking
+            levels: { production: 1, quality: 1, automation: 1 }, // New specialized levels
             quality: 1.0, 
+            baseQualityDecay: n.type === 'market' ? CONFIG.gameplay.qualityDecayMarket : CONFIG.gameplay.qualityDecaySupply,
             costs: {
                 raw: r,
                 transport: t,
                 make: m,
                 storage: 0
             },
+            baseCosts: { raw: r, make: m }, // Store base costs for reduction calc
             unitCost: unitCost,
             phase: Math.random() * Math.PI * 2, 
             screenPos: state.projection(n.coords),
@@ -931,8 +970,13 @@ function initGameLogic() {
     });
 
     const addRoute = (from, to) => {
-        state.routes.push(createRoute(state.nodes.find(n => n.id === from), state.nodes.find(n => n.id === to), 'ship'));
-        state.routes.push(createRoute(state.nodes.find(n => n.id === from), state.nodes.find(n => n.id === to), 'air'));
+        const fNode = state.nodes.find(n => n.id === from);
+        const tNode = state.nodes.find(n => n.id === to);
+        // Routes connected to locked nodes are not commissioned initially
+        const isCommissioned = !fNode.locked && !tNode.locked;
+        
+        state.routes.push(createRoute(fNode, tNode, 'ship', isCommissioned));
+        state.routes.push(createRoute(fNode, tNode, 'air', isCommissioned));
     };
 
     const supply = state.nodes.filter(n => n.type === 'supply');
@@ -946,14 +990,28 @@ function initGameLogic() {
 }
 
 // --- MODULE: NAUTICAL ENGINE ---
-function createRoute(fromNode, toNode, type) {
+function createRoute(fromNode, toNode, type, isCommissioned = true) {
     let rawPoints = [];
     if (type === 'air') {
         rawPoints = [fromNode.coords, toNode.coords];
     } else {
         const start = fromNode.portCoords || fromNode.coords;
         const end = toNode.portCoords || toNode.coords;
-        rawPoints = getShipPath(start, end);
+        
+        // HARDCODED FIX for Australia-Mexico to prevent any logic errors
+        if ((fromNode.id === 'australia' && toNode.id === 'mexico') || (fromNode.id === 'mexico' && toNode.id === 'australia')) {
+             const p = [
+                 // Direct to Sri Lanka, skipping Malacca
+                 WAYPOINTS.sriLanka.coords, WAYPOINTS.arabianSea.coords, 
+                 WAYPOINTS.babAlMandab.coords, WAYPOINTS.suez.coords, WAYPOINTS.gibraltar.coords, 
+                 WAYPOINTS.canaryPass.coords, 
+                 // Direct Atlantic crossing like India-USA route
+                 WAYPOINTS.caribbeanGate.coords, WAYPOINTS.cubaPass.coords
+             ];
+             rawPoints = fromNode.id === 'australia' ? [start, ...p, end] : [start, ...p.reverse(), end];
+        } else {
+            rawPoints = getShipPath(start, end);
+        }
     }
     
     const pathCoords = densifyPath(rawPoints, 0.005);
@@ -991,7 +1049,10 @@ function createRoute(fromNode, toNode, type) {
     return {
         id: `${fromNode.id}-${toNode.id}-${type}`,
         from: fromNode.id, to: toNode.id, type, 
-        active: type === 'ship', timer: Math.random() * interval, 
+        active: isCommissioned && type === 'ship', // Only commissioned ship routes active by default
+        commissioned: isCommissioned, // Phase 3: Route Commissioning
+        commissionCost: type === 'ship' ? 5000 : 2000, // Cost to open route
+        timer: Math.random() * interval, 
         interval: interval,
         pathCoords: pathCoords,
         visualStops: visualStops,           
@@ -1036,6 +1097,74 @@ function getShipPath(start, end) {
     const sR = getRegion(sLon, sLat), eR = getRegion(eLon, eLat);
     const pair = [sR, eR].sort().join('-'); 
     const isWestAsia = lon => lon < 95;
+    const isAustralia = (lon, lat) => lat < -10 && lon > 110 && lon < 160;
+
+    // 0. Australia Special Routing
+    if (isAustralia(sLon, sLat) || isAustralia(eLon, eLat)) {
+        const aus = isAustralia(sLon, sLat) ? start : end;
+        const other = isAustralia(sLon, sLat) ? end : start;
+        const otherLon = other[0];
+        
+        // Australia <-> Asia/Europe/Africa (Go via Malacca/Sunda)
+        if (other[1] > -10 && otherLon < 130) {
+            let p = [WAYPOINTS.malacca.coords];
+            if (otherLon < 80) p.unshift(WAYPOINTS.sriLanka.coords); // To India/Africa/Europe
+            if (otherLon > 115) p.push(WAYPOINTS.southChinaSea.coords); // To China/Japan
+            
+            // To Europe/Africa add more
+            if (otherLon < 60) {
+                p.unshift(WAYPOINTS.arabianSea.coords, WAYPOINTS.babAlMandab.coords, WAYPOINTS.suez.coords, WAYPOINTS.gibraltar.coords);
+                if (other[1] > 40) p.push(WAYPOINTS.dover.coords); // UK/Germany
+            }
+            
+            return isAustralia(sLon, sLat) ? [start, ...p, end] : [start, ...p.reverse(), end];
+        }
+        
+        // Australia <-> Americas (FORCE WEST via Suez/Cape)
+        const isAmericas = lon => lon < -30 && lon > -160;
+        const sIsAmericas = isAmericas(sLon);
+        const eIsAmericas = isAmericas(eLon);
+        const sIsAus = isAustralia(sLon, sLat);
+        const eIsAus = isAustralia(eLon, eLat);
+
+        if ((sIsAus && eIsAmericas) || (sIsAmericas && eIsAus)) {
+             // Path: Malacca -> ... -> Atlantic -> Americas
+             let p = [
+                 WAYPOINTS.malacca.coords, 
+                 WAYPOINTS.sriLanka.coords, 
+                 WAYPOINTS.arabianSea.coords, 
+                 WAYPOINTS.babAlMandab.coords, 
+                 WAYPOINTS.suez.coords, 
+                 WAYPOINTS.gibraltar.coords, 
+                 WAYPOINTS.canaryPass.coords, 
+                 WAYPOINTS.midAtlantic.coords, 
+                 WAYPOINTS.atlanticMid.coords 
+             ];
+             
+             // Determine the Americas point (either start or end)
+             const amPoint = sIsAmericas ? start : end;
+             
+             if (amPoint[1] < 10 && amPoint[1] > -30) { // To Brazil
+                 // Brazil path logic...
+             } else {
+                 // To Mexico/US East
+                 p.push(WAYPOINTS.caribbeanGate.coords); 
+                 if (amPoint[0] < -85) p.push(WAYPOINTS.cubaPass.coords); 
+             }
+             
+             // If start is Australia, use P as is. If start is Americas, reverse P.
+             return sIsAus ? [start, ...p, end] : [start, ...p.reverse(), end];
+        } 
+        
+        // Handle West Coast US separately (Pacific route)
+        // Only if one is Australia and the other is explicitly West Coast (<= -120)
+        // (This block is technically unreachable now if isAmericas includes -160, 
+        //  but keep for safety if definition changes)
+        if (otherLon <= -120 || (isAustralia(otherLon, other[1]) && sLon <= -120)) { 
+             const p = [WAYPOINTS.tasmanSea.coords, WAYPOINTS.hawaii.coords];
+             return isAustralia(sLon, sLat) ? [start, ...p, end] : [start, ...p.reverse(), end];
+        }
+    }
 
     // 1. Asia <-> Asia
     if (pair === 'asia-asia') {
@@ -1130,6 +1259,27 @@ function getShipPath(start, end) {
     if (pair === 'americas-europe') {
         const p = [WAYPOINTS.azores.coords];
         return sR === 'americas' ? [start, ...p, end] : [start, ...p.reverse(), end];
+    }
+
+    // 5.5 Americas <-> Americas (Brazil <-> Mexico/USA)
+    if (pair === 'americas-americas') {
+        // If crossing the Amazon/North Brazil bulge, go around
+        const southPoint = sLat < eLat ? start : end;
+        const northPoint = sLat < eLat ? end : start;
+        
+        if (southPoint[1] < 0 && northPoint[1] > 10) { // Brazil to Mexico/USA
+            // Go via Brazil Coast to clear the bulge efficiently
+            let p = [WAYPOINTS.brazilCoast.coords, WAYPOINTS.caribbeanGate.coords];
+            if (northPoint[0] < -85) p.push(WAYPOINTS.cubaPass.coords); // Into Gulf
+            return sLat < eLat ? [start, ...p, end] : [start, ...p.reverse(), end];
+        }
+    }
+
+    // 5.6 Africa <-> Americas
+    if (pair === 'africa-americas') {
+        const p = [WAYPOINTS.midAtlantic.coords, WAYPOINTS.caribbeanGate.coords];
+        if (eLon < -85 || sLon < -85) p.push(WAYPOINTS.cubaPass.coords);
+        return sR === 'africa' ? [start, ...p, end] : [start, ...p.reverse(), end];
     }
 
     // 6. Africa <-> Europe
@@ -1283,14 +1433,26 @@ function updateEconomy(dt) {
             const potentialProd = node.production * prodMult * dailyToPerSec * dt * (downstreamFull ? 0.2 : 1.0);
             const actualProd = Math.min(potentialProd, room);
             
+            // Apply Automation Discount
+            const automationFactor = Math.pow(CONFIG.investment.automation.costReduction, (node.levels.automation - 1));
+            const rawCost = (node.baseCosts.raw || 0) * automationFactor; // Ensure baseCosts.raw is used
+            
             if (actualProd > 0 && state.cash > -10000) {
-                // BUG FIX: Charge only the raw material cost, not the cumulative unitCost
-                state.cash -= actualProd * node.costs.raw;
+                // BUG FIX: Charge only the raw material cost
+                state.cash -= actualProd * rawCost;
                 node.inventory += actualProd;
+                
+                // Update node's raw cost tracking for display
+                node.costs.raw = rawCost; 
             }
         }
         
-        const decayRate = node.type === 'market' ? CONFIG.gameplay.qualityDecayMarket : CONFIG.gameplay.qualityDecaySupply;
+        // Apply Quality Investment Effect
+        const qualityLevel = node.levels.quality || 1;
+        const qualityFactor = Math.pow(CONFIG.investment.quality.decayReduction, (qualityLevel - 1));
+        const baseDecay = node.baseQualityDecay || (node.type === 'market' ? CONFIG.gameplay.qualityDecayMarket : CONFIG.gameplay.qualityDecaySupply);
+        const decayRate = baseDecay * qualityFactor;
+        
         if (node.inventory > 0) node.quality = Math.max(0.1, node.quality - dt * decayRate);
 
         if (node.type === 'market') {
@@ -1449,9 +1611,17 @@ function updateUnits(dt) {
         if (u.progress >= 1) {
             const dest = state.nodes.find(n => n.id === route.to);
             if (dest.type === 'make') {
-                const makeCost = dest.id === 'china' ? 8.0 : (dest.id === 'vietnam' ? 6.0 : 10.0);
+                // Apply Automation Discount for Manufacturing
+                const automationLevel = dest.levels ? dest.levels.automation : 1;
+                const automationFactor = Math.pow(CONFIG.investment.automation.costReduction, (automationLevel - 1));
+                const baseMakeCost = dest.id === 'china' ? 8.0 : (dest.id === 'vietnam' ? 6.0 : 10.0);
+                const makeCost = baseMakeCost * automationFactor;
+                
                 u.costs.make += makeCost;
                 u.unitCost = Object.values(u.costs).reduce((a, b) => a + b, 0);
+                
+                // Update make cost tracking
+                dest.costs.make = makeCost;
                 state.cash -= u.cargo * makeCost; 
             }
 
@@ -1574,7 +1744,7 @@ function render() {
             
             // Unified Event Effect
             const activeEvent = events.find(e => e.targetId === n.id);
-            if (activeEvent) {
+            if (activeEvent && !n.locked) {
                  const t = (Date.now() / 300) % 1;
                  ctx.beginPath();
                  ctx.arc(x, y, r + (30 * t)/transform.k, 0, Math.PI * 2);
@@ -1583,7 +1753,7 @@ function render() {
                  ctx.stroke();
             }
 
-            if (n.alert > 0) {
+            if (n.alert > 0 && !n.locked) {
                 const t = (Date.now() / 800) % 1;
                 ctx.beginPath(); 
                 ctx.arc(x, y, r + (20 * t)/transform.k, 0, Math.PI * 2); 
@@ -1591,17 +1761,41 @@ function render() {
                 ctx.strokeStyle = `rgba(248, 81, 73, ${1-t})`; ctx.lineWidth = 2/transform.k; ctx.stroke();
             }
 
-            ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fillStyle = CONFIG.colors[n.type]; ctx.fill();
+            // Draw Node Body
+            ctx.beginPath(); 
+            ctx.arc(x, y, r, 0, Math.PI * 2); 
             
-            if (isSel) {
-                 ctx.strokeStyle = '#fff'; ctx.lineWidth = 3/transform.k; ctx.stroke();
+            if (n.locked) {
+                // Locked Node Style
+                ctx.fillStyle = "rgba(48, 54, 61, 0.4)"; 
+                ctx.fill();
+                ctx.strokeStyle = "#8b949e"; 
+                ctx.lineWidth = 2/transform.k; 
+                ctx.setLineDash([4/transform.k, 4/transform.k]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                // Draw Lock Icon
+                ctx.fillStyle = "#8b949e";
+                ctx.font = `bold ${10/transform.k}px Inter`;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText("🔒", x, y);
             } else {
-                 ctx.strokeStyle = '#161b22'; ctx.lineWidth = 2/transform.k; ctx.stroke();
-            }
+                // Active Node Style
+                ctx.fillStyle = CONFIG.colors[n.type]; 
+                ctx.fill();
+                
+                if (isSel) {
+                     ctx.strokeStyle = '#fff'; ctx.lineWidth = 3/transform.k; ctx.stroke();
+                } else {
+                     ctx.strokeStyle = '#161b22'; ctx.lineWidth = 2/transform.k; ctx.stroke();
+                }
 
-            const bw = 32/transform.k, bh = 5/transform.k, pct = Math.min(1, n.inventory / n.maxInventory);
-            ctx.fillStyle = "rgba(22, 27, 34, 0.8)"; ctx.fillRect(x - bw/2, y + r + 2/transform.k, bw, bh);
-            ctx.fillStyle = pct < 0.2 ? CONFIG.colors.supply : CONFIG.colors.market; ctx.fillRect(x - bw/2, y + r + 2/transform.k, bw * pct, bh);
+                const bw = 32/transform.k, bh = 5/transform.k, pct = Math.min(1, n.inventory / n.maxInventory);
+                ctx.fillStyle = "rgba(22, 27, 34, 0.8)"; ctx.fillRect(x - bw/2, y + r + 2/transform.k, bw, bh);
+                ctx.fillStyle = pct < 0.2 ? CONFIG.colors.supply : CONFIG.colors.market; ctx.fillRect(x - bw/2, y + r + 2/transform.k, bw * pct, bh);
+            }
         });
 
         // 4. Draw Particles
@@ -1735,21 +1929,71 @@ function updateSheetStats(n) {
         const container = document.getElementById('sheet-stats');
         if (!container) return;
         
-        const cost = Math.floor(CONFIG.upgradeCosts.base * Math.pow(CONFIG.upgradeCosts.multiplier, n.level - 1));
-        const canAfford = state.cash >= cost;
+        // Calculate costs for each investment type
+        const getCost = (type) => {
+            const base = CONFIG.investment[type].cost;
+            const lvl = (n.levels && n.levels[type]) ? n.levels[type] : 1;
+            return Math.floor(base * Math.pow(CONFIG.upgradeCosts.multiplier, lvl - 1));
+        };
+        
+        const costs = {
+            production: getCost('production'),
+            quality: getCost('quality'),
+            automation: getCost('automation')
+        };
         
         if (container.getAttribute('data-node-id') !== n.id) {
             container.setAttribute('data-node-id', n.id);
             
-            let label = n.type === 'supply' ? "Production" : (n.type === 'make' ? "Throughput" : "Marketing");
-            let h = `<div class="stat-card" style="grid-column: span 2; display:flex; justify-content:space-between; align-items:center; padding: 10px 16px;" id="upgrade-card">
-                    <div style="display:flex; flex-direction:column;">
-                        <div class="stat-card-label">${label}: Lv <span id="stat-lvl">${n.level}</span></div>
-                        <div class="stat-card-value" id="stat-cost">$${(cost/1000).toFixed(1)}k</div>
+            // LOCKED NODE UI
+            if (n.locked) {
+                const cost = n.unlockCost;
+                const canAfford = state.cash >= cost;
+                
+                let h = `<div class="stat-card" style="grid-column: span 2; padding:20px; text-align:center; background:rgba(255,255,255,0.02);">
+                    <div style="font-size:14px; color:var(--text-secondary); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">New Hub Opportunity</div>
+                    <div style="font-size:24px; font-weight:bold; color:var(--text-primary); margin-bottom:8px;">${n.name}</div>
+                    <div style="font-size:12px; color:var(--text-secondary); margin-bottom:20px;">
+                        Type: <span style="color:${CONFIG.colors[n.type]}; font-weight:bold;">${n.type.toUpperCase()}</span><br>
+                        Potential: ${n.type === 'market' ? n.baseDemand + ' Demand/day' : (n.type === 'supply' ? n.production + ' Prod/day' : n.capacity + ' Capacity')}
                     </div>
-                    <button id="btn-upgrade" onclick="upgradeNode('${n.id}')" style="border:none; padding:8px 16px; border-radius:6px; font-weight:bold; white-space:nowrap; margin-left:10px;">UPGRADE</button>
-                  </div>`;
+                    <div style="font-size:32px; font-weight:800; color:${canAfford ? 'var(--accent-green)' : 'var(--text-secondary)'}; margin-bottom:20px;">
+                        ${Utils.fmtCurrency(cost)}
+                    </div>
+                    <button onclick="unlockNode('${n.id}')" style="
+                        width:100%; padding:16px; border:none; border-radius:12px; font-size:16px; font-weight:bold;
+                        background:${canAfford ? 'var(--accent-green)' : '#30363d'}; 
+                        color:white; cursor:${canAfford ? 'pointer' : 'not-allowed'}; opacity:${canAfford ? 1 : 0.5};
+                        box-shadow: ${canAfford ? '0 4px 12px rgba(63, 185, 80, 0.4)' : 'none'};
+                    ">BUILD HUB</button>
+                </div>`;
+                container.innerHTML = h;
+                
+                // Hide route section for locked nodes
+                const rSec = document.querySelector('.routes-section');
+                if (rSec) rSec.style.display = 'none';
+                return;
+            }
 
+            // UNLOCKED NODE UI (Existing logic)
+            // Build specialized investment UI
+            let invHTML = `<div class="stat-card" style="grid-column: span 2; display:flex; flex-direction:column; gap:8px;">
+                <div class="stat-card-label" style="margin-bottom:4px;">Strategic Investments</div>`;
+            
+            ['production', 'quality', 'automation'].forEach(type => {
+                const cfg = CONFIG.investment[type];
+                const lvl = (n.levels && n.levels[type]) ? n.levels[type] : 1;
+                invHTML += `<div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:6px 10px; border-radius:6px;">
+                    <div style="display:flex; flex-direction:column;">
+                        <span style="font-size:12px; font-weight:bold;">${cfg.label} <span style="font-weight:normal; opacity:0.7;" id="lvl-${type}">Lv.${lvl}</span></span>
+                        <span style="font-size:10px; color:var(--text-secondary);" id="roi-${type}">ROI: Calc...</span>
+                    </div>
+                    <button id="btn-${type}" onclick="investNode('${n.id}', '${type}')" style="border:none; padding:4px 12px; border-radius:4px; font-size:11px; font-weight:bold; cursor:pointer;">${Utils.fmtCurrency(costs[type])}</button>
+                </div>`;
+            });
+            invHTML += `</div>`;
+
+            let h = invHTML;
             h += `<div class="stat-card" style="grid-column: span 2;">
                     <div class="stat-card-label">Cost-to-Serve Breakdown</div>
                     <div style="display:flex; flex-direction:column; gap:4px; margin-top:8px;">
@@ -1773,10 +2017,49 @@ function updateSheetStats(n) {
             container.innerHTML = h;
         }
 
-        const lvlEl = document.getElementById('stat-lvl');
-        if (lvlEl) lvlEl.innerText = n.level;
-        const costEl = document.getElementById('stat-cost');
-        if (costEl) costEl.innerText = '$' + (cost/1000).toFixed(1) + 'k';
+        // Update Buttons and ROI
+        ['production', 'quality', 'automation'].forEach(type => {
+            const cost = costs[type];
+            const btn = document.getElementById(`btn-${type}`);
+            const lvlEl = document.getElementById(`lvl-${type}`);
+            const roiEl = document.getElementById(`roi-${type}`);
+            
+            if (lvlEl) lvlEl.innerText = `Lv.${(n.levels && n.levels[type]) ? n.levels[type] : 1}`;
+            
+            if (btn) {
+                btn.innerText = Utils.fmtCurrency(cost); // Fixed: Removed duplicate '$'
+                btn.style.background = state.cash >= cost ? 'var(--accent-blue)' : '#30363d';
+                btn.style.opacity = state.cash >= cost ? 1 : 0.5;
+                btn.style.color = 'white';
+            }
+            
+            // ROI Calculation Logic
+            if (roiEl) {
+                let savingPerDay = 0;
+                if (type === 'automation') {
+                    // Savings from reduced Make/Raw costs based on current throughput
+                    const throughput = n.type === 'market' ? n.demand : (n.type === 'supply' ? n.production : n.processRate);
+                    const currentCost = (n.baseCosts.make || 0) + (n.baseCosts.raw || 0);
+                    const discount = 1 - CONFIG.investment.automation.costReduction;
+                    savingPerDay = throughput * currentCost * discount;
+                } else if (type === 'quality') {
+                    // Savings from reduced spoilage/price drop (approximate)
+                    const stock = n.inventory;
+                    const price = n.type === 'market' ? CONFIG.salePrice : n.unitCost;
+                    savingPerDay = stock * 0.005 * price * 0.2; // Rough estimate of retained value
+                } else if (type === 'production') {
+                     // Profit from increased capacity (marginal profit * extra units)
+                     const margin = 5; // Assumed margin per unit
+                     const extraUnits = (n.type === 'supply' ? n.production : n.processRate) * 0.2;
+                     savingPerDay = extraUnits * margin;
+                }
+                
+                const roiDays = savingPerDay > 0 ? cost / savingPerDay : 999;
+                const roiColor = roiDays < CONFIG.upgradeCosts.roiThreshold ? 'var(--accent-green)' : 'var(--text-secondary)';
+                roiEl.innerText = roiDays < 999 ? `Recov: ${roiDays.toFixed(0)}d` : `Recov: Long`;
+                roiEl.style.color = roiColor;
+            }
+        });
         
         // Cost Breakdown Values
         const rawEl = document.getElementById('cost-raw');
@@ -1845,7 +2128,7 @@ function updateSheetStats(n) {
 
 function renderSheetRoutes(n) {
     const section = document.querySelector('.routes-section');
-    if (n.type === 'market') { section.style.display = 'none'; return; }
+    if (n.locked || n.type === 'market') { section.style.display = 'none'; return; }
     section.style.display = 'block';
 
     const c = document.getElementById('sheet-routes'), out = state.routes.filter(r => r.from === n.id);
@@ -1855,13 +2138,32 @@ function renderSheetRoutes(n) {
     const iconShip = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 21c.6.5 1.2 1 2.5 1 2.3 0 2.8-1 5-1 2.3 0 2.8 1 5 1 2.3 0 2.8-1 5-1 2.3 0 2.8 1 5 1 1.2 0 1.9-.5 2.5-1M2 21v-8c0-1.1.9-2 2-2h16c1.1 0 2 .9 2 2v8M12 11V3L9 6M12 3l3 3"/></svg>';
 
     [...new Set(out.map(r => r.to))].forEach(tid => {
-        const tn = state.nodes.find(x => x.id === tid), air = out.find(r => r.to === tid && r.type === 'air'), ship = out.find(r => r.to === tid && r.type === 'ship');
-        c.innerHTML += `<div class="route-card"><div class="route-row"><span class="route-dest">To ${tn.name}</span></div>${renderOpt(air, 'Air', iconAir, '$1.5k')}${renderOpt(ship, 'Sea', iconShip, '$200')}</div>`;
+        const tn = state.nodes.find(x => x.id === tid);
+        // Don't show routes to locked nodes
+        if (tn && tn.locked) return;
+        
+        const air = out.find(r => r.to === tid && r.type === 'air'), ship = out.find(r => r.to === tid && r.type === 'ship');
+        c.innerHTML += `<div class="route-card"><div class="route-row"><span class="route-dest">To ${tn.name}</span></div>${renderCommissionOpt(air, 'Air', iconAir, '$1.5k')}${renderCommissionOpt(ship, 'Sea', iconShip, '$200')}</div>`;
     });
 }
 
-function renderOpt(r, l, i, c) {
+function renderCommissionOpt(r, l, i, c) {
     if (!r) return '';
+    
+    // Phase 3: Route Commissioning Logic
+    if (!r.commissioned) {
+        const canAfford = state.cash >= r.commissionCost;
+        return `<div class="transport-option" style="flex-direction:column; align-items:flex-start; gap:8px; opacity:0.8; background:rgba(0,0,0,0.2); padding:8px; border-radius:6px; margin-top:4px;">
+            <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+                <div class="transport-info" style="color:var(--text-secondary);"><span>${i}</span><span>${l} (Closed)</span></div>
+                <button onclick="commissionRoute('${r.id}')" style="
+                    border:none; padding:4px 12px; border-radius:4px; font-size:11px; font-weight:bold; cursor:${canAfford?'pointer':'not-allowed'};
+                    background:${canAfford?'var(--accent-blue)':'#30363d'}; color:white; opacity:${canAfford?1:0.5};
+                ">OPEN ${Utils.fmtCurrency(r.commissionCost)}</button>
+            </div>
+        </div>`;
+    }
+
     const days = (r.interval / 5000).toFixed(1);
     return `<div class="transport-option" style="flex-direction:column; align-items:flex-start; gap:8px;">
         <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
@@ -1874,6 +2176,23 @@ function renderOpt(r, l, i, c) {
         </div>
     </div>`;
 }
+
+window.commissionRoute = (id) => {
+    const r = state.routes.find(x => x.id === id);
+    if (r && !r.commissioned && state.cash >= r.commissionCost) {
+        state.cash -= r.commissionCost;
+        r.commissioned = true;
+        r.active = true; // Auto-activate on commission
+        
+        spawnParticle(state.projection(state.nodes.find(n => n.id === r.from).coords), "ROUTE OPEN!", "#58a6ff");
+        showNotification(`New Route Opened to ${state.nodes.find(n => n.id === r.to).name}`, "#58a6ff");
+        
+        updateUI();
+        // Refresh sheet
+        const node = state.nodes.find(n => n.id === r.from);
+        if (node) renderSheetRoutes(node);
+    }
+};
 
 window.updateInterval = (id, val) => {
     const r = state.routes.find(x => x.id === id);
@@ -2031,34 +2350,75 @@ function renderHistoryCharts() {
     draw('balance-chart', [state.history.demand, state.history.production], ['var(--accent-red)', 'var(--accent-blue)']);
 }
 
-window.upgradeNode = (id) => {
+window.unlockNode = (id) => {
+    const n = state.nodes.find(x => x.id === id);
+    if (!n || !n.locked) return;
+    
+    if (state.cash >= n.unlockCost) {
+        state.cash -= n.unlockCost;
+        n.locked = false;
+        
+        // Ensure standard properties are active
+        n.inventory = n.type === 'supply' ? 500 : 100;
+        if (n.type === 'market') n.demand = n.baseDemand;
+        
+        // Ensure investment levels exist (should be there from init, but safety check)
+        if (!n.levels) n.levels = { production: 1, quality: 1, automation: 1 };
+        
+        spawnParticle(state.projection(n.coords), "HUB BUILT!", "#3fb950");
+        showNotification(`${n.name} Hub Construction Complete!`, "#3fb950");
+        
+        updateUI();
+        
+        // Force refresh sheet by closing and reopening slightly later or clearing attribute
+        const container = document.getElementById('sheet-stats');
+        if (container) container.removeAttribute('data-node-id'); // Force redraw
+        
+        openSheet(n); // Refresh sheet to show normal stats
+    }
+};
+
+window.investNode = (id, type) => {
     const node = state.nodes.find(n => n.id === id);
     if (!node) return;
-    const cost = Math.floor(CONFIG.upgradeCosts.base * Math.pow(CONFIG.upgradeCosts.multiplier, node.level - 1));
+    
+    // Ensure levels object exists
+    if (!node.levels) node.levels = { production: 1, quality: 1, automation: 1 };
+    
+    const base = CONFIG.investment[type].cost;
+    const lvl = node.levels[type];
+    const cost = Math.floor(base * Math.pow(CONFIG.upgradeCosts.multiplier, lvl - 1));
+    
     if (state.cash >= cost) {
         state.cash -= cost; 
-        node.level++;
+        node.levels[type]++;
         
-        const boost = CONFIG.gameplay.upgradeBoost;
-        if (node.type === 'supply') { 
-            node.production *= boost; 
-            node.maxInventory *= boost; 
-        } else if (node.type === 'make') { 
-            node.processRate *= boost; 
-            node.maxInventory *= boost;
-            state.routes.filter(r => r.to === node.id).forEach(r => {
-                const factor = CONFIG.transport[r.type].intervalFactor;
-                r.interval = (CONFIG.transport[r.type].capacity / Math.max(1, node.processRate)) * 1000 * factor;
-            });
-        } else if (node.type === 'market') { 
-            node.baseDemand *= boost; 
-            node.maxInventory *= boost; 
+        // Apply Investment Effects
+        if (type === 'production') {
+            const boost = CONFIG.investment.production.boost;
+            if (node.type === 'supply') { 
+                node.production *= boost; 
+                node.maxInventory *= boost; 
+            } else if (node.type === 'make') { 
+                node.processRate *= boost; 
+                node.maxInventory *= boost;
+                // Update route intervals for higher throughput
+                state.routes.filter(r => r.to === node.id).forEach(r => {
+                    const factor = CONFIG.transport[r.type].intervalFactor;
+                    r.interval = (CONFIG.transport[r.type].capacity / Math.max(1, node.processRate)) * 1000 * factor;
+                });
+            } else if (node.type === 'market') { 
+                node.baseDemand *= boost; 
+                node.maxInventory *= boost; 
+            }
         }
+        // Quality and Automation effects are applied dynamically in updateEconomy/updateUnits based on level
         
-        spawnParticle(state.projection(node.coords), "UPGRADE!", "#ffd700");
-        showNotification(`${node.name} Upgraded to Lv ${node.level}`, "#ffd700");
+        const label = CONFIG.investment[type].label;
+        spawnParticle(state.projection(node.coords), `${label} UP!`, "#ffd700");
+        showNotification(`${node.name}: ${label} upgraded to Lv ${node.levels[type]}`, "#ffd700");
         updateUI(); 
-        openSheet(node);
+        updateSheetStats(node); // Refresh UI
     }
 };
 
