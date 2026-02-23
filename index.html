@@ -928,7 +928,8 @@ function initGameLogic() {
         // Phase 3: Handle locked nodes
         if (n.locked) {
             // Phase 4: Initialize inputs for factories (BOM)
-            const inputs = n.type === 'make' ? Object.keys(n.bom || {}).reduce((acc, k) => ({ ...acc, [k]: 200 }), {}) : null;
+            const initStockLevel = n.type === 'supply' ? 200 : (n.maxInventory || n.capacity || 500) * 0.4;
+            const inputs = n.type === 'make' ? Object.keys(n.bom || {}).reduce((acc, k) => ({ ...acc, [k]: initStockLevel }), {}) : null;
 
             return {
                 ...n,
@@ -953,11 +954,12 @@ function initGameLogic() {
         }
 
         // Phase 4: Initialize inputs for factories (BOM)
-        const inputs = n.type === 'make' ? Object.keys(n.bom || {}).reduce((acc, k) => ({ ...acc, [k]: 200 }), {}) : null;
+        const initStockLevel = n.type === 'supply' ? 200 : (n.maxInventory || n.capacity || 500) * 0.4;
+        const inputs = n.type === 'make' ? Object.keys(n.bom || {}).reduce((acc, k) => ({ ...acc, [k]: initStockLevel }), {}) : null;
 
         return {
             ...n,
-            inventory: n.type === 'supply' ? 500 : 200, 
+            inventory: initStockLevel, 
             maxInventory: n.maxInventory || n.capacity || 500,
             inputs: inputs,
             stalledDays: 0,
@@ -2572,10 +2574,11 @@ window.unlockNode = (id) => {
         state.cash -= n.unlockCost;
         n.locked = false;
         
-        // Ensure standard properties are active with buffer
-        n.inventory = n.type === 'supply' ? 500 : 200;
+        // Ensure standard properties are active with buffer (40% of max)
+        const initStockLevel = n.type === 'supply' ? 200 : n.maxInventory * 0.4;
+        n.inventory = initStockLevel;
         if (n.inputs) {
-            Object.keys(n.inputs).forEach(k => n.inputs[k] = 200);
+            Object.keys(n.inputs).forEach(k => n.inputs[k] = initStockLevel);
         }
         if (n.type === 'market') n.demand = n.baseDemand;
         
