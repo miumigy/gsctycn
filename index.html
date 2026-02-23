@@ -2029,7 +2029,7 @@ function updateSheetStats(n) {
                         background:${canAfford ? 'var(--accent-green)' : '#30363d'}; 
                         color:white; cursor:${canAfford ? 'pointer' : 'not-allowed'}; opacity:${canAfford ? 1 : 0.5};
                         box-shadow: ${canAfford ? '0 4px 12px rgba(63, 185, 80, 0.4)' : 'none'};
-                    ">BUILD HUB</button>
+                    ">Build Hub</button>
                 </div>`;
                 container.innerHTML = h;
                 
@@ -2041,7 +2041,8 @@ function updateSheetStats(n) {
 
             // UNLOCKED NODE UI (Existing logic)
             // Build specialized investment UI
-            let resName = n.type === 'supply' ? n.resourceType.toUpperCase() : (n.type === 'make' ? 'BATTERY' : 'MARKET');
+            const capitalize = s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+            let resName = n.type === 'supply' ? capitalize(n.resourceType) : (n.type === 'make' ? 'Battery' : 'Market');
             let resColor = CONFIG.colors[n.type === 'supply' ? n.resourceType : (n.type === 'make' ? 'battery' : 'market')] || 'var(--text-primary)';
             
             let invHTML = `<div class="stat-card" style="grid-column: span 2; background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0) 100%);">
@@ -2087,13 +2088,14 @@ function updateSheetStats(n) {
             else h += `<div class="stat-card"><div class="stat-card-label">Rate</div><div class="stat-card-value"><span id="stat-rate">${(n.type==='supply'?n.production:n.processRate).toFixed(1)}</span> /d</div></div>`;
             
             if (n.type === 'make' && n.inputs) {
+                const capitalize = s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
                 let inputHTML = `<div class="stat-card" style="grid-column: span 2;">
                     <div class="stat-card-label">BOM Components (Inventory)</div>
                     <div style="display:flex; flex-direction:column; gap:6px; margin-top:8px;" id="stat-inputs">`;
                 for (const [res, amount] of Object.entries(n.inputs)) {
                     const color = CONFIG.colors[res] || 'var(--text-primary)';
                     inputHTML += `<div style="display:flex; justify-content:space-between; font-size:12px;">
-                        <span style="color:${color}; font-weight:bold;">${res.toUpperCase()}</span>
+                        <span style="color:${color}; font-weight:bold;">${capitalize(res)}</span>
                         <span><span id="stat-input-${res}">${Math.floor(amount)}</span> units</span>
                     </div>`;
                 }
@@ -2103,7 +2105,7 @@ function updateSheetStats(n) {
                 inputHTML += `<div style="margin-top:10px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.1); display:flex; justify-content:space-between; align-items:center;">
                     <span style="font-size:11px; color:var(--text-secondary);">Sync Status:</span>
                     <span id="stat-stall-status" style="font-size:12px; font-weight:bold; color:${isStalled ? 'var(--accent-red)' : 'var(--accent-green)'}">
-                        ${isStalled ? `STALLED (${n.stalledDays.toFixed(1)}d)` : 'OPERATIONAL'}
+                        ${isStalled ? `Stalled (${n.stalledDays.toFixed(1)}d)` : 'Operational'}
                     </span>
                 </div>`;
 
@@ -2123,7 +2125,7 @@ function updateSheetStats(n) {
             const stallEl = document.getElementById('stat-stall-status');
             if (stallEl) {
                 const isStalled = n.stalledDays > 0.1;
-                stallEl.innerText = isStalled ? `STALLED (${n.stalledDays.toFixed(1)}d)` : 'OPERATIONAL';
+                stallEl.innerText = isStalled ? `Stalled (${n.stalledDays.toFixed(1)}d)` : 'Operational';
                 stallEl.style.color = isStalled ? 'var(--accent-red)' : 'var(--accent-green)';
             }
         }
@@ -2218,7 +2220,7 @@ function updateSheetStats(n) {
             
             if (n.inventory < 1) {
                 if (freshVal) freshVal.innerText = "-";
-                if (freshText) freshText.innerText = "OUT OF STOCK";
+                if (freshText) freshText.innerText = "Out of stock";
                 if (priceVal) priceVal.innerText = "-";
             } else {
                 const q = n.quality;
@@ -2254,14 +2256,11 @@ function renderSheetRoutes(n) {
         if (tn && tn.locked) return;
         
         const air = out.find(r => r.to === tid && r.type === 'air'), ship = out.find(r => r.to === tid && r.type === 'ship');
-        const resourceName = n.type === 'supply' ? n.resourceType.toUpperCase() : 'BATTERY';
-        const resourceColor = CONFIG.colors[n.type === 'supply' ? n.resourceType : 'battery'] || 'var(--text-primary)';
-
+        
         c.innerHTML += `<div class="route-card">
             <div class="route-row" style="margin-bottom:8px;">
                 <div style="display:flex; flex-direction:column;">
                     <span class="route-dest">To ${tn.name}</span>
-                    <span style="font-size:10px; color:${resourceColor}; font-weight:bold; letter-spacing:0.5px;">${resourceName}</span>
                 </div>
             </div>
             ${renderCommissionOpt(air, 'Air', iconAir, '$1.5k')}
@@ -2504,7 +2503,7 @@ window.unlockNode = (id) => {
         // Ensure investment levels exist (should be there from init, but safety check)
         if (!n.levels) n.levels = { production: 1, quality: 1, automation: 1 };
         
-        spawnParticle(state.projection(n.coords), "HUB BUILT!", "#3fb950");
+        spawnParticle(state.projection(n.coords), "Hub Built!", "#3fb950");
         showNotification(`${n.name} Hub Construction Complete!`, "#3fb950");
         
         updateUI();
