@@ -2069,9 +2069,9 @@ function updateSheetStats(n) {
             const capitalize = s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
             
             // Standardize terminology
-            const typeLabel = n.type === 'supply' ? 'Raw' : (n.type === 'make' ? 'Factory' : 'Market');
-            const outputLabel = n.type === 'market' ? 'Demand' : 'Primary Output';
-            const outputValue = n.type === 'supply' ? capitalize(n.resourceType) : (n.type === 'make' ? 'Battery' : 'Market');
+            const typeValue = n.type === 'supply' ? 'Raw' : (n.type === 'make' ? 'Factory' : 'Market');
+            const outputLabel = n.type === 'market' ? 'Primary Output' : 'Primary Output'; // Always Primary Output label per latest prompt
+            const outputValue = n.type === 'market' ? 'Demand' : (n.type === 'supply' ? capitalize(n.resourceType) : 'Battery');
             
             const resColor = CONFIG.colors[n.type === 'supply' ? n.resourceType : (n.type === 'make' ? 'battery' : 'market')] || 'var(--text-primary)';
 
@@ -2084,7 +2084,7 @@ function updateSheetStats(n) {
                     <div style="font-size:14px; color:var(--text-secondary); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">New Hub Opportunity</div>
                     <div style="font-size:24px; font-weight:bold; color:var(--text-primary); margin-bottom:8px;">${n.name}</div>
                     <div style="font-size:12px; color:var(--text-secondary); margin-bottom:20px; line-height:1.6;">
-                        Type: <span style="color:${CONFIG.colors[n.type]}; font-weight:bold;">${typeLabel}</span><br>
+                        Type: <span style="color:${CONFIG.colors[n.type]}; font-weight:bold;">${typeValue}</span><br>
                         ${outputLabel}: <span style="color:${resColor}; font-weight:bold;">${outputValue}</span><br>
                         Potential: ${n.type === 'market' ? n.baseDemand + ' units/day' : (n.type === 'supply' ? n.production + ' units/day' : n.capacity + ' units/day')}
                     </div>
@@ -2111,11 +2111,11 @@ function updateSheetStats(n) {
             let invHTML = `<div class="stat-card" style="grid-column: span 2; background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0) 100%);">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <div style="display:flex; flex-direction:column;">
-                        <div style="font-size:10px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:1px; margin-bottom:2px;">Type</div>
-                        <div style="font-size:14px; font-weight:bold; color:${CONFIG.colors[n.type]};">${typeLabel}</div>
+                        <div style="font-size:10px; color:var(--text-secondary); letter-spacing:1px; margin-bottom:2px;">Type</div>
+                        <div style="font-size:14px; font-weight:bold; color:${CONFIG.colors[n.type]};">${typeValue}</div>
                     </div>
                     <div style="display:flex; flex-direction:column; text-align:right;">
-                        <div style="font-size:10px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:1px; margin-bottom:2px;">${outputLabel}</div>
+                        <div style="font-size:10px; color:var(--text-secondary); letter-spacing:1px; margin-bottom:2px;">Primary Output</div>
                         <div style="font-size:14px; font-weight:bold; color:${resColor};">${outputValue}</div>
                     </div>
                 </div>
