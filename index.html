@@ -86,7 +86,6 @@
         }
         .stat-label {
             font-size: 11px;
-            text-transform: uppercase;
             letter-spacing: 1px;
             color: var(--text-secondary);
             font-weight: 700;
@@ -325,13 +324,12 @@
             border-radius: 12px;
             border: 1px solid var(--panel-border);
         }
-        .stat-card-label { font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; font-weight: 600; }
+        .stat-card-label { font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; font-weight: 600; }
         .stat-card-value { font-size: 16px; font-weight: 600; color: var(--text-primary); }
 
         .routes-section h3 {
             font-size: 13px;
             color: var(--text-secondary);
-            text-transform: uppercase;
             letter-spacing: 1px;
             margin: 0 0 16px 0;
             font-weight: 700;
@@ -487,7 +485,7 @@
         }
         .overlay-screen h1 {
             font-size: 40px; margin-bottom: 10px; color: var(--text-primary);
-            text-transform: uppercase; letter-spacing: 2px; text-align: center;
+            letter-spacing: 2px; text-align: center;
             line-height: 1.2;
         }
         .primary-btn {
@@ -500,18 +498,18 @@
         .primary-btn:active { transform: scale(0.95); }
         
         .final-score { margin-bottom: 24px; text-align: center; }
-        .score-label { color: var(--text-secondary); font-size: 14px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+        .score-label { color: var(--text-secondary); font-size: 14px; letter-spacing: 1px; margin-bottom: 4px; }
         .score-value { font-size: 36px; font-weight: 800; color: var(--text-primary); letter-spacing: -1px; }
     </style>
 </head>
 <body>
 
 <div id="title-screen" class="overlay-screen">
-    <h1>Global Supply<br>Chain Tycoon</h1>
+    <h1 style="text-transform: none;">Global Supply<br>Chain Tycoon</h1>
     <p style="color:#8b949e; margin-bottom:20px; font-size:14px;">Manage routes, control inventory, and maximize profit.</p>
     
     <div style="margin-bottom:30px; text-align:center;">
-        <p style="font-size:12px; color:var(--text-secondary); text-transform:uppercase; margin-bottom:10px;">Select Game Duration</p>
+        <p style="font-size:12px; color:var(--text-secondary); margin-bottom:10px;">Select Game Duration</p>
         <div style="display:flex; gap:10px; justify-content:center;">
             <button class="fab-btn active" id="btn-1y" onclick="setDuration(1)" style="width:60px; border-radius:8px;">1 Yr</button>
             <button class="fab-btn" id="btn-3y" onclick="setDuration(3)" style="width:60px; border-radius:8px;">3 Yr</button>
@@ -519,11 +517,11 @@
         </div>
     </div>
     
-    <button class="primary-btn" onclick="startGame()">START GAME</button>
+    <button class="primary-btn" onclick="startGame()">Start Game</button>
 </div>
 
 <div id="end-screen" class="overlay-screen" style="display:none;">
-    <h1>GAME OVER</h1>
+    <h1>Game Over</h1>
     <div class="final-score">
         <div class="score-label">Final Net Cash</div>
         <div class="score-value" id="final-cash">$0</div>
@@ -543,7 +541,7 @@
             <div class="score-value" style="font-size:24px;" id="final-turnover">-</div>
         </div>
     </div>
-    <button class="primary-btn" onclick="replayGame()">PLAY AGAIN</button>
+    <button class="primary-btn" onclick="replayGame()">Play Again</button>
 </div>
 
 <div id="game-container">
@@ -690,7 +688,7 @@
                     </div>
                 </div>
                 
-                <button class="primary-btn" onclick="continueGame()" style="width:100%;">CONTINUE TO YEAR <span id="next-year">2</span></button>
+                <button class="primary-btn" onclick="continueGame()" style="width:100%;">Continue to Year <span id="next-year">2</span></button>
             </div>
         </div>
     </div>
@@ -2459,6 +2457,7 @@ window.replayGame = () => {
     document.getElementById('dashboard-modal').style.display = 'none';
     document.getElementById('history-modal').style.display = 'none';
     document.getElementById('report-modal').style.display = 'none';
+    closePanel(); // Ensure panel is closed
     resetState(); initGameLogic(); setSpeed(0); resetZoom(); updateUI(); document.getElementById('title-screen').style.display = 'flex'; 
 };
 
