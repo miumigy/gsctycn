@@ -1624,16 +1624,38 @@ function dispatchUnit(route) {
     const to = state.nodes.find(n => n.id === route.to);
     const cfg = CONFIG.transport[route.type];
     
-    const incomingCargo = state.units
+    // Determine what we are carrying
+    const resourceType = from.type === 'supply' ? from.resourceType : 'battery';
+
+    // 1. Calculate how much of THIS specific resource is already at destination or in transit
+    const incomingThisRes = state.units
+        .filter(u => {
+             const r = state.routes.find(r => r.id === u.routeId);
+             return r && r.to === to.id && u.resourceType === resourceType;
+        })
+        .reduce((sum, u) => sum + u.cargo, 0);
+
+    const stockAtDest = (to.type === 'make' && to.inputs && to.inputs[resourceType] !== undefined)
+        ? to.inputs[resourceType]
+        : (to.id === from.id ? 0 : to.inventory);
+
+    // 2. Calculate TOTAL physical occupancy (Inventory + Inputs + ALL incoming)
+    const totalIncomingAll = state.units
         .filter(u => {
              const r = state.routes.find(r => r.id === u.routeId);
              return r && r.to === to.id;
         })
         .reduce((sum, u) => sum + u.cargo, 0);
+    const totalCurrentAll = to.inventory + ((to.type === 'make' && to.inputs) ? Object.values(to.inputs).reduce((a, b) => a + b, 0) : 0);
+    const totalOccupancy = totalCurrentAll + totalIncomingAll;
 
-    // Include current inputs in the fullness check for factories
-    const currentInputs = (to.type === 'make' && to.inputs) ? Object.values(to.inputs).reduce((a, b) => a + b, 0) : 0;
-    if (to.inventory + currentInputs + incomingCargo >= to.maxInventory) {
+    // 3. Dispatch Decision Logic
+    // Soft Limit: Don't send more if we already have plenty of this SPECIFIC resource (e.g. 50% of capacity)
+    if (stockAtDest + incomingThisRes >= to.maxInventory * 0.5) {
+        return; 
+    }
+    // Hard Limit: If warehouse is physically almost full (90%+), stop all incoming
+    if (totalOccupancy >= to.maxInventory * 0.9) {
         return;
     }
 
