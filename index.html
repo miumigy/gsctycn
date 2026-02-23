@@ -527,18 +527,22 @@
         <div class="score-value" id="final-cash">$0</div>
     </div>
     
-    <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:20px; margin-bottom:30px;">
+    <div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap:15px; margin-bottom:30px;">
         <div style="text-align:center;">
             <div class="score-label">Avg Freshness</div>
-            <div class="score-value" style="font-size:24px;" id="final-fresh">-</div>
+            <div class="score-value" style="font-size:20px;" id="final-fresh">-</div>
         </div>
         <div style="text-align:center;">
-            <div class="score-label">Missed Sales</div>
-            <div class="score-value" style="font-size:24px; color:var(--accent-red);" id="final-missed">-</div>
+            <div class="score-label">Service Level</div>
+            <div class="score-value" style="font-size:20px;" id="final-service">-</div>
+        </div>
+        <div style="text-align:center;">
+            <div class="score-label">Lost Sales</div>
+            <div class="score-value" style="font-size:20px; color:var(--accent-red);" id="final-missed">-</div>
         </div>
         <div style="text-align:center;">
             <div class="score-label">Inv. Turnover</div>
-            <div class="score-value" style="font-size:24px;" id="final-turnover">-</div>
+            <div class="score-value" style="font-size:20px;" id="final-turnover">-</div>
         </div>
     </div>
     <button class="primary-btn" onclick="replayGame()">Play Again</button>
@@ -2665,10 +2669,17 @@ window.endGame = () => {
     freshEl.innerText = (avgFresh * 100).toFixed(0) + '%';
     freshEl.style.color = avgFresh > 0.8 ? 'var(--accent-green)' : (avgFresh > 0.5 ? 'var(--accent-yellow)' : 'var(--accent-red)');
 
-    // 2. Total Missed Sales (as currency)
+    // 2. Average Service Level (Lifetime)
+    const totalPotential = state.totalSales + state.totalLostSales;
+    const serviceLevel = totalPotential > 0 ? state.totalSales / totalPotential : 1.0;
+    const serviceEl = document.getElementById('final-service');
+    serviceEl.innerText = (serviceLevel * 100).toFixed(0) + '%';
+    serviceEl.style.color = serviceLevel > 0.9 ? 'var(--accent-green)' : (serviceLevel > 0.7 ? 'var(--accent-yellow)' : 'var(--accent-red)');
+
+    // 3. Total Missed Sales (as currency)
     document.getElementById('final-missed').innerText = Utils.fmtCurrency(state.totalLostRevenue);
 
-    // 3. Inventory Turnover = Total Sales / Avg Global Inventory
+    // 4. Inventory Turnover = Total Sales / Avg Global Inventory
     const histInv = state.history.inventory;
     const avgInv = histInv.length > 0 ? histInv.reduce((a,b)=>a+b,0)/histInv.length : state.nodes.reduce((a,n)=>a+n.inventory,0);
     const turnover = avgInv > 0 ? state.totalSales / avgInv : 0;
