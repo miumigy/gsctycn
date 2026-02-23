@@ -614,7 +614,7 @@
         </div>
 
         <!-- REBUILT DASHBOARD MODAL -->
-        <div id="dashboard-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:var(--panel-bg); z-index:200; overflow-y:auto; padding:20px; box-sizing:border-box; pointer-events:auto; -webkit-overflow-scrolling:touch;">
+        <div id="dashboard-modal" onclick="if(event.target===this)toggleDashboard()" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:var(--panel-bg); z-index:200; overflow-y:auto; padding:20px; box-sizing:border-box; pointer-events:auto; -webkit-overflow-scrolling:touch;">
             <div style="max-width:600px; margin:0 auto;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
                     <h2 style="margin:0; font-size:24px; color:#f0f6fc;">Global Performance</h2>
@@ -644,7 +644,7 @@
         </div>
 
         <!-- REBUILT HISTORY MODAL -->
-        <div id="history-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:var(--panel-bg); z-index:200; overflow-y:auto; padding:20px; box-sizing:border-box; pointer-events:auto; -webkit-overflow-scrolling:touch;">
+        <div id="history-modal" onclick="if(event.target===this)toggleHistory()" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:var(--panel-bg); z-index:200; overflow-y:auto; padding:20px; box-sizing:border-box; pointer-events:auto; -webkit-overflow-scrolling:touch;">
             <div style="max-width:600px; margin:0 auto;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
                     <h2 style="margin:0; font-size:24px; color:#f0f6fc;">Growth Trends</h2>
@@ -657,8 +657,13 @@
                 </div>
 
                 <div style="background:rgba(255,255,255,0.03); padding:16px; border-radius:12px; border:1px solid var(--panel-border); margin-bottom:20px;">
-                    <div class="stat-label">Global Inventory Trend</div>
+                    <div class="stat-label">Global Inventory Trend <span style="font-size:10px; color:var(--accent-yellow); opacity:0.8;">(--- Safety Line)</span></div>
                     <div id="inv-chart" style="width:100%; height:150px; margin-top:10px;"></div>
+                </div>
+
+                <div style="background:rgba(255,255,255,0.03); padding:16px; border-radius:12px; border:1px solid var(--panel-border); margin-bottom:20px;">
+                    <div class="stat-label">Average Margin %</div>
+                    <div id="margin-chart" style="width:100%; height:150px; margin-top:10px;"></div>
                 </div>
 
                 <div style="background:rgba(255,255,255,0.03); padding:16px; border-radius:12px; border:1px solid var(--panel-border);">
@@ -759,18 +764,18 @@ const CONFIG = {
         text: '#f0f6fc'
     },
     transport: {
-        ship: { speed: 80, capacity: 500, costPerDispatch: 200, color: '#58a6ff', intervalFactor: 2.5 }, 
-        air: { speed: 1000, capacity: 100, costPerDispatch: 800, color: '#f0f6fc', intervalFactor: 8.0 }
+        ship: { speed: 80, capacity: 500, costPerDispatch: 400, costPerUnit: 0.8, color: '#58a6ff', intervalFactor: 2.5 }, 
+        air: { speed: 1000, capacity: 100, costPerDispatch: 400, costPerUnit: 8.0, color: '#f0f6fc', intervalFactor: 8.0 }
     },
     gameplay: {
         dayDuration: 5.0, // Seconds per game day
-        qualityDecayMarket: 0.005,
-        qualityDecaySupply: 0.001,
+        qualityDecayMarket: 0.002,
+        qualityDecaySupply: 0.0005,
         upgradeBoost: 1.2,
         eventFrequency: 0.01
     },
-    storageCostPerUnit: 0.1,
-    salePrice: 20,
+    storageCostPerUnit: 0.01,
+    salePrice: 32, // Increased base price
     upgradeCosts: {
         base: 5000,
         multiplier: 1.5
@@ -792,7 +797,7 @@ function getInitialState() {
         particles: [],
         events: [], 
         notifications: [],
-        history: { cash: [], inventory: [], days: [], demand: [], production: [] },
+        history: { cash: [], inventory: [], days: [], demand: [], production: [], margin: [] },
         totalSales: 0,
         totalLostSales: 0,
         totalLostRevenue: 0,
@@ -893,18 +898,37 @@ function resize() {
 }
 
 function initGameLogic() {
-    state.nodes = NODES_DATA.map(n => ({
-        ...n,
-        inventory: 1000, 
-        maxInventory: n.maxInventory || n.capacity || 1500,
-        demand: 0,
-        level: 1, 
-        quality: 1.0, 
-        unitCost: n.type === 'supply' ? (n.id === 'sa' ? 4.0 : 2.0) : (n.type === 'make' ? 6.0 : 8.0),
-        phase: Math.random() * Math.PI * 2, 
-        screenPos: state.projection(n.coords),
-        alert: 0
-    }));
+    state.nodes = NODES_DATA.map(n => {
+        // More realistic initial costs (Embedded costs for starting inventory)
+        let r = 0, t = 0, m = 0;
+        if (n.type === 'supply') {
+            r = (n.id === 'sa' ? 8.0 : 5.0);
+        } else if (n.type === 'make') {
+            r = 6.0; t = 2.0; m = (n.id === 'china' ? 8.0 : (n.id === 'vietnam' ? 6.0 : 10.0));
+        } else if (n.type === 'market') {
+            r = 6.0; t = 4.0; m = 8.0;
+        }
+        const unitCost = r + t + m;
+
+        return {
+            ...n,
+            inventory: n.type === 'supply' ? 500 : 100, 
+            maxInventory: n.maxInventory || n.capacity || 1500,
+            demand: 0,
+            level: 1, 
+            quality: 1.0, 
+            costs: {
+                raw: r,
+                transport: t,
+                make: m,
+                storage: 0
+            },
+            unitCost: unitCost,
+            phase: Math.random() * Math.PI * 2, 
+            screenPos: state.projection(n.coords),
+            alert: 0
+        };
+    });
 
     const addRoute = (from, to) => {
         state.routes.push(createRoute(state.nodes.find(n => n.id === from), state.nodes.find(n => n.id === to), 'ship'));
@@ -967,7 +991,7 @@ function createRoute(fromNode, toNode, type) {
     return {
         id: `${fromNode.id}-${toNode.id}-${type}`,
         from: fromNode.id, to: toNode.id, type, 
-        active: false, timer: Math.random() * interval, 
+        active: type === 'ship', timer: Math.random() * interval, 
         interval: interval,
         pathCoords: pathCoords,
         visualStops: visualStops,           
@@ -1229,13 +1253,41 @@ function updateEconomy(dt) {
     state.nodes.forEach(node => {
         if (node.alert > 0) node.alert -= dt;
 
+        // Apply storage costs
+        if (node.inventory > 0.1) { // Only track storage if there is meaningful inventory
+            const storageCostTotal = node.inventory * CONFIG.storageCostPerUnit * dailyToPerSec * dt;
+            state.cash -= storageCostTotal;
+            node.costs.storage += storageCostTotal / node.inventory;
+            node.unitCost = Object.values(node.costs).reduce((a, b) => a + b, 0);
+        } else if (node.inventory <= 0.01) {
+            // Reset storage cost component if inventory is practically zero
+            node.costs.storage = 0;
+        }
+
         if (node.type === 'supply') {
             const prodEvent = state.events.find(e => e.targetId === node.id && e.type === 'prod_crisis');
             const prodMult = prodEvent ? prodEvent.magnitude : 1.0;
-            const prodAmount = node.production * prodMult * dailyToPerSec * dt;
             
-            state.cash -= prodAmount * node.unitCost; // Use calculated unit cost
-            node.inventory = Math.min(node.maxInventory, node.inventory + prodAmount);
+            // Smart Throttling: Check downstream capacity
+            let downstreamFull = false;
+            const downstreamRoutes = state.routes.filter(r => r.from === node.id && r.active);
+            if (downstreamRoutes.length > 0) {
+                const avgDownstreamFill = downstreamRoutes.reduce((acc, r) => {
+                    const dest = state.nodes.find(n => n.id === r.to);
+                    return acc + (dest.inventory / dest.maxInventory);
+                }, 0) / downstreamRoutes.length;
+                if (avgDownstreamFill > 0.9) downstreamFull = true;
+            }
+
+            const room = node.maxInventory - node.inventory;
+            const potentialProd = node.production * prodMult * dailyToPerSec * dt * (downstreamFull ? 0.2 : 1.0);
+            const actualProd = Math.min(potentialProd, room);
+            
+            if (actualProd > 0 && state.cash > -10000) {
+                // BUG FIX: Charge only the raw material cost, not the cumulative unitCost
+                state.cash -= actualProd * node.costs.raw;
+                node.inventory += actualProd;
+            }
         }
         
         const decayRate = node.type === 'market' ? CONFIG.gameplay.qualityDecayMarket : CONFIG.gameplay.qualityDecaySupply;
@@ -1246,7 +1298,8 @@ function updateEconomy(dt) {
             const spikeMult = spikeEvent ? spikeEvent.magnitude : 1.0;
             node.demand = node.baseDemand * (1 + Math.sin(node.phase + Date.now()/2000) * 0.3) * spikeMult;
             
-            const price = CONFIG.salePrice * (0.2 + 2.8 * Math.pow(node.quality, 2)) * spikeMult;
+            // Dampen quality impact on price: Range 0.8x to 1.2x of salePrice
+            const price = CONFIG.salePrice * (0.8 + 0.4 * Math.pow(node.quality, 2)) * spikeMult;
             const sell = Math.min(node.inventory, node.demand * dailyToPerSec * dt);
             
             if (sell > 0) { 
@@ -1279,12 +1332,22 @@ function recordHistory() {
     const totalFactory = state.nodes.filter(n => n.type === 'make').reduce((a,n) => a + n.processRate, 0);
     const totalProd = Math.min(totalRaw, totalFactory);
 
+    // Calculate Avg Margin % only at markets with inventory
+    const activeMarkets = state.nodes.filter(n => n.type === 'market' && n.inventory > 1);
+    const avgMargin = activeMarkets.length > 0 ? activeMarkets.reduce((acc, m) => {
+        const spike = (state.events || []).find(e => e.targetId === m.id && e.type === 'market_spike');
+        const price = CONFIG.salePrice * (0.8 + 0.4 * Math.pow(m.quality, 2)) * (spike ? spike.magnitude : 1);
+        const margin = price > 0 ? (price - m.unitCost) / price : 0;
+        return acc + margin;
+    }, 0) / activeMarkets.length : 0;
+
     const globalDay = ((state.currentYear - 1) * 365) + state.day;
     state.history.days.push(globalDay);
     state.history.cash.push(state.cash);
     state.history.inventory.push(totalInv);
     state.history.demand.push(totalDemand);
     state.history.production.push(totalProd);
+    state.history.margin.push(avgMargin * 100);
     
     if (state.history.days.length > 50) {
         state.history.days.shift(); 
@@ -1292,6 +1355,7 @@ function recordHistory() {
         state.history.inventory.shift(); 
         state.history.demand.shift(); 
         state.history.production.shift();
+        state.history.margin.shift();
     }
 }
 
@@ -1337,12 +1401,18 @@ function dispatchUnit(route) {
 
     let amount = Math.min(cfg.capacity, from.inventory);
     
-    if (amount > 10 && state.cash >= cfg.costPerDispatch) {
+    // Efficiency check: ships should only move if they have a decent load
+    const minLoad = route.type === 'ship' ? 100 : 10;
+    
+    if (amount >= minLoad && state.cash >= -5000) { // Allow slight debt for dispatching
         from.inventory -= amount; 
-        state.cash -= cfg.costPerDispatch;
         
-        const transportCostPerUnit = cfg.costPerDispatch / amount;
-        const totalUnitCost = from.unitCost + transportCostPerUnit;
+        const totalDispatchCost = cfg.costPerDispatch + (amount * cfg.costPerUnit);
+        state.cash -= totalDispatchCost;
+        
+        const transportCostPerUnit = totalDispatchCost / amount;
+        const unitCosts = { ...from.costs };
+        unitCosts.transport += transportCostPerUnit;
 
         state.units.push({ 
             routeId: route.id, 
@@ -1351,7 +1421,8 @@ function dispatchUnit(route) {
             progress: 0, 
             cargo: amount,
             quality: from.quality,
-            unitCost: totalUnitCost
+            costs: unitCosts,
+            unitCost: Object.values(unitCosts).reduce((a, b) => a + b, 0)
         });
     }
 }
@@ -1378,15 +1449,21 @@ function updateUnits(dt) {
         if (u.progress >= 1) {
             const dest = state.nodes.find(n => n.id === route.to);
             if (dest.type === 'make') {
-                const makeCost = dest.id === 'china' ? 3.0 : (dest.id === 'vietnam' ? 2.0 : 4.0);
-                u.unitCost += makeCost;
+                const makeCost = dest.id === 'china' ? 8.0 : (dest.id === 'vietnam' ? 6.0 : 10.0);
+                u.costs.make += makeCost;
+                u.unitCost = Object.values(u.costs).reduce((a, b) => a + b, 0);
                 state.cash -= u.cargo * makeCost; 
             }
 
             const totalStock = dest.inventory + u.cargo;
             if (totalStock > 0) {
                 dest.quality = ((dest.inventory * dest.quality) + (u.cargo * u.quality)) / totalStock;
-                dest.unitCost = ((dest.inventory * dest.unitCost) + (u.cargo * u.unitCost)) / totalStock;
+                
+                // Merge detailed costs
+                Object.keys(dest.costs).forEach(key => {
+                    dest.costs[key] = ((dest.inventory * (dest.costs[key] || 0)) + (u.cargo * (u.costs[key] || 0))) / totalStock;
+                });
+                dest.unitCost = Object.values(dest.costs).reduce((a, b) => a + b, 0);
             }
             
             dest.inventory += u.cargo;
@@ -1673,8 +1750,18 @@ function updateSheetStats(n) {
                     <button id="btn-upgrade" onclick="upgradeNode('${n.id}')" style="border:none; padding:8px 16px; border-radius:6px; font-weight:bold; white-space:nowrap; margin-left:10px;">UPGRADE</button>
                   </div>`;
 
-            h += `<div class="stat-card"><div class="stat-card-label">Avg. Unit Cost</div><div class="stat-card-value">$${n.unitCost.toFixed(2)}</div></div>`;
+            h += `<div class="stat-card" style="grid-column: span 2;">
+                    <div class="stat-card-label">Cost-to-Serve Breakdown</div>
+                    <div style="display:flex; flex-direction:column; gap:4px; margin-top:8px;">
+                        <div style="display:flex; justify-content:space-between; font-size:12px;"><span>Raw Material</span><span id="cost-raw">$0.00</span></div>
+                        <div style="display:flex; justify-content:space-between; font-size:12px;"><span>Transport</span><span id="cost-transport">$0.00</span></div>
+                        <div style="display:flex; justify-content:space-between; font-size:12px;"><span>Processing</span><span id="cost-make">$0.00</span></div>
+                        <div style="display:flex; justify-content:space-between; font-size:12px;"><span>Storage/Carry</span><span id="cost-storage">$0.00</span></div>
+                        <div style="display:flex; justify-content:space-between; font-size:13px; font-weight:bold; border-top:1px solid rgba(255,255,255,0.1); padding-top:4px; margin-top:2px;"><span>Total Unit Cost</span><span id="cost-total">$0.00</span></div>
+                    </div>
+                  </div>`;
             h += `<div class="stat-card"><div class="stat-card-label">Stock Level</div><div class="stat-card-value"><span id="stat-stock">${Math.floor(n.inventory)}</span> / <span id="stat-max">${Math.floor(n.maxInventory)}</span></div></div>`;
+            h += `<div class="stat-card"><div class="stat-card-label">Net Flow</div><div class="stat-card-value" id="stat-flow">0 /d</div></div>`;
             
             if (n.type === 'market') {
                 h += `<div class="stat-card"><div class="stat-card-label">Freshness</div><div class="stat-card-value"><span id="stat-fresh-val">0%</span> <span id="stat-fresh-text" style="font-size:12px; opacity:0.8">-</span></div></div>`;
@@ -1690,10 +1777,41 @@ function updateSheetStats(n) {
         if (lvlEl) lvlEl.innerText = n.level;
         const costEl = document.getElementById('stat-cost');
         if (costEl) costEl.innerText = '$' + (cost/1000).toFixed(1) + 'k';
+        
+        // Cost Breakdown Values
+        const rawEl = document.getElementById('cost-raw');
+        if (rawEl) rawEl.innerText = '$' + (n.costs.raw || 0).toFixed(2);
+        const transEl = document.getElementById('cost-transport');
+        if (transEl) transEl.innerText = '$' + (n.costs.transport || 0).toFixed(2);
+        const makeEl = document.getElementById('cost-make');
+        if (makeEl) makeEl.innerText = '$' + (n.costs.make || 0).toFixed(2);
+        const storEl = document.getElementById('cost-storage');
+        if (storEl) storEl.innerText = '$' + (n.costs.storage || 0).toFixed(2);
+        const totalEl = document.getElementById('cost-total');
+        if (totalEl) totalEl.innerText = '$' + (n.unitCost || 0).toFixed(2);
+
         const stockEl = document.getElementById('stat-stock');
         if (stockEl) stockEl.innerText = Math.floor(n.inventory);
         const maxEl = document.getElementById('stat-max');
         if (maxEl) maxEl.innerText = Math.floor(n.maxInventory);
+
+        // Calculate Net Flow
+        let netFlow = 0;
+        if (n.type === 'supply') netFlow = n.production;
+        else if (n.type === 'make') netFlow = 0; // Balance of in/out
+        else if (n.type === 'market') netFlow = -n.demand;
+
+        state.routes.forEach(r => {
+            if (!r.active) return;
+            const flow = (CONFIG.transport[r.type].capacity / (r.interval / 1000));
+            if (r.from === n.id) netFlow -= flow;
+            if (r.to === n.id) netFlow += flow;
+        });
+        const flowEl = document.getElementById('stat-flow');
+        if (flowEl) {
+            flowEl.innerText = (netFlow > 0 ? '+' : '') + netFlow.toFixed(1) + '/d';
+            flowEl.style.color = netFlow < -1 ? 'var(--accent-red)' : (netFlow > 5 ? 'var(--accent-yellow)' : 'var(--accent-green)');
+        }
         
         const rateEl = document.getElementById('stat-rate');
         if (rateEl) rateEl.innerText = (n.type==='market'?n.demand:n.type==='supply'?n.production:n.processRate).toFixed(1);
@@ -1854,7 +1972,7 @@ function renderHistoryCharts() {
         return;
     }
 
-    const draw = (containerId, datasets, colors, unit = "") => {
+    const draw = (containerId, datasets, colors, unit = "", options = {}) => {
         const container = document.getElementById(containerId);
         if (!container) return;
         container.innerHTML = '';
@@ -1867,13 +1985,23 @@ function renderHistoryCharts() {
         // Calculate Y domain across all datasets
         let yMin = Infinity, yMax = -Infinity;
         datasets.forEach(data => {
-            yMin = Math.min(yMin, d3.min(data));
-            yMax = Math.max(yMax, d3.max(data));
+            const min = d3.min(data);
+            const max = d3.max(data);
+            if (min !== undefined) yMin = Math.min(yMin, min);
+            if (max !== undefined) yMax = Math.max(yMax, max);
         });
-        const y = d3.scaleLinear().domain([yMin * 0.9, yMax * 1.1]).range([h, 0]);
+
+        if (options.yMin !== undefined) yMin = options.yMin;
+        if (options.yMax !== undefined) yMax = options.yMax;
+        
+        if (yMin === Infinity) { yMin = 0; yMax = 100; }
+        if (yMin === yMax) { yMin -= 1; yMax += 1; }
+
+        const pad = (yMax - yMin) * 0.1 || 1;
+        const y = d3.scaleLinear().domain([yMin - pad, yMax + pad]).range([h, 0]);
 
         svg.append("g").attr("transform", `translate(0,${h})`).call(d3.axisBottom(x).ticks(5).tickFormat(d => `D${Math.floor(d)}`)).attr("color", "#8b949e");
-        svg.append("g").call(d3.axisLeft(y).ticks(5).tickFormat(d => d >= 1000 ? `${(d/1000).toFixed(0)}k` : d)).attr("color", "#8b949e");
+        svg.append("g").call(d3.axisLeft(y).ticks(5).tickFormat(d => d >= 1000 ? `${(d/1000).toFixed(0)}k` : d.toFixed(0) + unit)).attr("color", "#8b949e");
 
         datasets.forEach((data, i) => {
             const line = d3.line().x((d, idx) => x(state.history.days[idx])).y(d => y(d)).curve(d3.curveMonotoneX);
@@ -1884,11 +2012,23 @@ function renderHistoryCharts() {
                 svg.append("path").datum(data).attr("fill", colors[i]).attr("opacity", 0.1).attr("d", area);
             }
         });
+
+        // Add reference lines
+        if (options.referenceLine !== undefined) {
+            svg.append("line")
+                .attr("x1", 0).attr("x2", w)
+                .attr("y1", y(options.referenceLine)).attr("y2", y(options.referenceLine))
+                .attr("stroke", options.refColor || "#8b949e")
+                .attr("stroke-width", 1)
+                .attr("stroke-dasharray", "4,4");
+        }
     };
 
-    draw('cash-chart', [state.history.cash], ['var(--accent-blue)'], "Amount ($)");
-    draw('inv-chart', [state.history.inventory], ['var(--accent-green)'], "Quantity");
-    draw('balance-chart', [state.history.demand, state.history.production], ['var(--accent-red)', 'var(--accent-blue)'], "Rate");
+    const maxGlobalInv = state.nodes.reduce((a,n) => a + n.maxInventory, 0);
+    draw('cash-chart', [state.history.cash], ['var(--accent-blue)'], "$");
+    draw('inv-chart', [state.history.inventory], ['var(--accent-green)'], "", { referenceLine: maxGlobalInv * 0.2, refColor: 'var(--accent-yellow)' });
+    draw('margin-chart', [state.history.margin], ['var(--accent-yellow)'], "%");
+    draw('balance-chart', [state.history.demand, state.history.production], ['var(--accent-red)', 'var(--accent-blue)']);
 }
 
 window.upgradeNode = (id) => {
@@ -1954,7 +2094,13 @@ window.endGame = () => {
     document.getElementById('final-turnover').innerText = turnover.toFixed(1) + 'x';
 };
 
-window.replayGame = () => { document.getElementById('end-screen').style.display = 'none'; resetState(); initGameLogic(); setSpeed(0); resetZoom(); updateUI(); document.getElementById('title-screen').style.display = 'flex'; };
+window.replayGame = () => { 
+    document.getElementById('end-screen').style.display = 'none'; 
+    document.getElementById('dashboard-modal').style.display = 'none';
+    document.getElementById('history-modal').style.display = 'none';
+    document.getElementById('report-modal').style.display = 'none';
+    resetState(); initGameLogic(); setSpeed(0); resetZoom(); updateUI(); document.getElementById('title-screen').style.display = 'flex'; 
+};
 
 function resetState() {
     // Preserve system-critical objects before resetting
