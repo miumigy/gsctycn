@@ -1423,7 +1423,11 @@ function updateEconomy(dt) {
         const totalStockForStorage = node.inventory + componentStock;
 
         if (totalStockForStorage > 0.1) {
-            const storageCostTotal = totalStockForStorage * CONFIG.storageCostPerUnit * dailyToPerSec * dt;
+            // Apply Efficiency Discount to storage costs (especially for Markets)
+            const efficiencyLevel = node.levels ? node.levels.automation : 1;
+            const efficiencyFactor = Math.pow(CONFIG.investment.automation.costReduction, (efficiencyLevel - 1));
+            const storageCostTotal = totalStockForStorage * (CONFIG.storageCostPerUnit * efficiencyFactor) * dailyToPerSec * dt;
+            
             state.cash -= storageCostTotal;
             node.costs.storage += storageCostTotal / totalStockForStorage;
             node.unitCost = Object.values(node.costs).reduce((a, b) => a + b, 0);
@@ -2053,6 +2057,16 @@ function updateSheetStats(n) {
             let resName = n.type === 'supply' ? capitalize(n.resourceType) : (n.type === 'make' ? 'Battery' : 'Market');
             let resColor = CONFIG.colors[n.type === 'supply' ? n.resourceType : (n.type === 'make' ? 'battery' : 'market')] || 'var(--text-primary)';
             
+            // Define labels based on node type
+            const getInvLabel = (type) => {
+                if (n.type === 'market') {
+                    if (type === 'production') return "Market Expansion";
+                    if (type === 'quality') return "Freshness Preservation";
+                    if (type === 'automation') return "Operational Efficiency";
+                }
+                return CONFIG.investment[type].label;
+            };
+
             let invHTML = `<div class="stat-card" style="grid-column: span 2; background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0) 100%);">
                 <div style="font-size:10px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">Primary Output</div>
                 <div style="font-size:18px; font-weight:800; color:${resColor}; letter-spacing:0.5px;">${resName}</div>
@@ -2063,10 +2077,11 @@ function updateSheetStats(n) {
             
             ['production', 'quality', 'automation'].forEach(type => {
                 const cfg = CONFIG.investment[type];
+                const label = getInvLabel(type);
                 const lvl = (n.levels && n.levels[type]) ? n.levels[type] : 1;
                 invHTML += `<div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:6px 10px; border-radius:6px;">
                     <div style="display:flex; flex-direction:column;">
-                        <span style="font-size:12px; font-weight:bold;">${cfg.label} <span style="font-weight:normal; opacity:0.7;" id="lvl-${type}">Lv.${lvl}</span></span>
+                        <span style="font-size:12px; font-weight:bold;">${label} <span style="font-weight:normal; opacity:0.7;" id="lvl-${type}">Lv.${lvl}</span></span>
                         <span style="font-size:10px; color:var(--text-secondary);" id="roi-${type}">ROI: Calc...</span>
                     </div>
                     <button id="btn-${type}" onclick="investNode('${n.id}', '${type}')" style="border:none; padding:4px 12px; border-radius:4px; font-size:11px; font-weight:bold; cursor:pointer;">${Utils.fmtCurrency(costs[type])}</button>
