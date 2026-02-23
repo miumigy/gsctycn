@@ -928,7 +928,7 @@ function initGameLogic() {
         // Phase 3: Handle locked nodes
         if (n.locked) {
             // Phase 4: Initialize inputs for factories (BOM)
-            const inputs = n.type === 'make' ? Object.keys(n.bom || {}).reduce((acc, k) => ({ ...acc, [k]: 0 }), {}) : null;
+            const inputs = n.type === 'make' ? Object.keys(n.bom || {}).reduce((acc, k) => ({ ...acc, [k]: 200 }), {}) : null;
 
             return {
                 ...n,
@@ -953,11 +953,11 @@ function initGameLogic() {
         }
 
         // Phase 4: Initialize inputs for factories (BOM)
-        const inputs = n.type === 'make' ? Object.keys(n.bom || {}).reduce((acc, k) => ({ ...acc, [k]: 0 }), {}) : null;
+        const inputs = n.type === 'make' ? Object.keys(n.bom || {}).reduce((acc, k) => ({ ...acc, [k]: 200 }), {}) : null;
 
         return {
             ...n,
-            inventory: n.type === 'supply' ? 200 : 50, 
+            inventory: n.type === 'supply' ? 500 : 200, 
             maxInventory: n.maxInventory || n.capacity || 500,
             inputs: inputs,
             stalledDays: 0,
@@ -2572,8 +2572,11 @@ window.unlockNode = (id) => {
         state.cash -= n.unlockCost;
         n.locked = false;
         
-        // Ensure standard properties are active
-        n.inventory = n.type === 'supply' ? 200 : 50;
+        // Ensure standard properties are active with buffer
+        n.inventory = n.type === 'supply' ? 500 : 200;
+        if (n.inputs) {
+            Object.keys(n.inputs).forEach(k => n.inputs[k] = 200);
+        }
         if (n.type === 'market') n.demand = n.baseDemand;
         
         // Ensure investment levels exist (should be there from init, but safety check)
