@@ -742,8 +742,8 @@ const WAYPOINTS = {
 };
 
 const NODES_DATA = [
-    { id: 'brazil', name: 'Brazil', type: 'supply', coords: [-40, -20], portCoords: [-40, -20], production: 25, maxInventory: 3000, resourceType: 'lithium' },
-    { id: 'sa', name: 'South Africa', type: 'supply', coords: [18, -34], portCoords: [18, -34], production: 6, resourceType: 'cobalt' },
+    { id: 'brazil', name: 'Brazil', type: 'supply', coords: [-40, -20], portCoords: [-40, -20], production: 35, maxInventory: 3000, resourceType: 'lithium' },
+    { id: 'sa', name: 'South Africa', type: 'supply', coords: [18, -34], portCoords: [18, -34], production: 12, resourceType: 'cobalt' },
     { id: 'congo', name: 'Congo', type: 'supply', coords: [12, -6], portCoords: [12, -6], production: 18, maxInventory: 2500, resourceType: 'cobalt' },
     { id: 'china', name: 'China', type: 'make', coords: [122, 30], portCoords: [122, 30], capacity: 2000, processRate: 25, bom: { 'lithium': 1, 'cobalt': 1 } },
     { id: 'india', name: 'India', type: 'make', coords: [72.8, 18.9], portCoords: [72.8, 18.9], capacity: 1750, processRate: 20, bom: { 'lithium': 1, 'cobalt': 1 } },
@@ -784,7 +784,7 @@ const CONFIG = {
         eventFrequency: 0.01
     },
     storageCostPerUnit: 0.01,
-    salePrice: 45, // Balanced for Phase 4 complexity
+    salePrice: 55, // Further increased to support complex BOM chains
     upgradeCosts: {
         base: 5000,
         multiplier: 1.5,
@@ -2169,10 +2169,13 @@ function updateSheetStats(n) {
                     const price = n.type === 'market' ? CONFIG.salePrice : n.unitCost;
                     savingPerDay = stock * 0.005 * price * 0.2; // Rough estimate of retained value
                 } else if (type === 'production') {
-                     // Profit from increased capacity (marginal profit * extra units)
-                     const margin = 5; // Assumed margin per unit
+                     // Profit from increased capacity
+                     // For supply, it contributes to final sales. 
+                     // Estimated marginal profit per finished unit is high now.
+                     const marginalProfit = CONFIG.salePrice * 0.4; 
                      const extraUnits = (n.type === 'supply' ? n.production : n.processRate) * 0.2;
-                     savingPerDay = extraUnits * margin;
+                     // For supply, we divide by 2 because it takes 2 raw materials to make 1 battery
+                     savingPerDay = extraUnits * (n.type === 'supply' ? marginalProfit / 2 : marginalProfit);
                 }
                 
                 const roiDays = savingPerDay > 0 ? cost / savingPerDay : 999;
