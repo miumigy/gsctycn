@@ -773,8 +773,8 @@ const CONFIG = {
         battery: '#3fb950'
     },
     transport: {
-        ship: { speed: 80, capacity: 500, costPerDispatch: 400, costPerUnit: 0.8, color: '#58a6ff', intervalFactor: 2.5 }, 
-        air: { speed: 1000, capacity: 100, costPerDispatch: 400, costPerUnit: 8.0, color: '#f0f6fc', intervalFactor: 8.0 }
+        ship: { speed: 80, capacity: 500, costPerDispatch: 400, costPerUnit: 0.8, color: '#58a6ff', intervalFactor: 0.5 }, 
+        air: { speed: 1000, capacity: 100, costPerDispatch: 400, costPerUnit: 8.0, color: '#f0f6fc', intervalFactor: 0.2 }
     },
     gameplay: {
         dayDuration: 5.0, // Seconds per game day
@@ -1056,7 +1056,7 @@ function createRoute(fromNode, toNode, type, isCommissioned = true) {
     const intervalFactor = CONFIG.transport[type].intervalFactor;
 
     let interval = (CONFIG.transport[type].capacity / Math.max(1, targetDemand)) * 1000 * intervalFactor;
-    interval = Math.max(2500, Math.min(150000, interval));
+    interval = Math.max(2500, Math.min(50000, interval));
     const intervalDays = (interval / 1000) / CONFIG.gameplay.dayDuration;
 
     return {
