@@ -511,9 +511,9 @@
     <div style="margin-bottom:30px; text-align:center;">
         <p style="font-size:12px; color:var(--text-secondary); margin-bottom:10px;">Select Game Duration</p>
         <div style="display:flex; gap:10px; justify-content:center;">
-            <button class="fab-btn active" id="btn-1y" onclick="setDuration(1)" style="width:60px; border-radius:8px;">1 Yr</button>
-            <button class="fab-btn" id="btn-3y" onclick="setDuration(3)" style="width:60px; border-radius:8px;">3 Yr</button>
-            <button class="fab-btn" id="btn-5y" onclick="setDuration(5)" style="width:60px; border-radius:8px;">5 Yr</button>
+            <button class="fab-btn active" id="btn-1y" onclick="setDuration(1)" style="width:80px; border-radius:8px;">1 Year</button>
+            <button class="fab-btn" id="btn-3y" onclick="setDuration(3)" style="width:80px; border-radius:8px;">3 Years</button>
+            <button class="fab-btn" id="btn-5y" onclick="setDuration(5)" style="width:80px; border-radius:8px;">5 Years</button>
         </div>
     </div>
     
@@ -528,7 +528,7 @@
         <div class="score-value" id="final-cash">$0</div>
     </div>
     
-    <div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap:15px; margin-bottom:30px;">
+    <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:15px; margin-bottom:30px;">
         <div style="text-align:center;">
             <div class="score-label">Avg Freshness</div>
             <div class="score-value" style="font-size:20px;" id="final-fresh">-</div>
@@ -544,6 +544,14 @@
         <div style="text-align:center;">
             <div class="score-label">Inv. Turnover</div>
             <div class="score-value" style="font-size:20px;" id="final-turnover">-</div>
+        </div>
+        <div style="text-align:center;">
+            <div class="score-label">CO2 Emission</div>
+            <div class="score-value" style="font-size:20px; color:var(--accent-red);" id="final-co2">-</div>
+        </div>
+        <div style="text-align:center;">
+            <div class="score-label">ESG Score</div>
+            <div class="score-value" style="font-size:20px; color:var(--accent-blue);" id="final-esg">-</div>
         </div>
     </div>
     <button class="primary-btn" onclick="replayGame()">Play Again</button>
@@ -640,7 +648,18 @@
                         <div class="stat-card-label">Active Flights</div>
                         <div class="stat-card-value" id="dash-planes" style="color:var(--text-primary)">0</div>
                     </div>
+                    <div class="stat-card">
+                        <div class="stat-card-label">CO2 Emissions</div>
+                        <div class="stat-card-value" id="dash-co2" style="color:var(--accent-red)">0</div>
+                    </div>
                 </div>
+
+                <div id="gx-section" style="margin-top:24px; background:rgba(63, 185, 80, 0.1); border: 1px solid rgba(63, 185, 80, 0.3); border-radius:12px; padding:16px;">
+                    <h3 style="margin:0 0 8px 0; color:#3fb950; font-size:16px;">Green Transformation (GX)</h3>
+                    <p style="margin:0 0 12px 0; font-size:12px; color:var(--text-secondary);">Invest in electric cargo ships and renewable energy factories to reduce CO2 emissions by 50% and get tax breaks.</p>
+                    <button id="gx-btn" onclick="investGX()" class="primary-btn" style="background:#238636; width:100%; border:none;">Invest in GX ($50k)</button>
+                </div>
+
                 <h3 style="margin-top:24px; color:#8b949e; font-size:14px; text-transform:uppercase;">Market Analysis</h3>
                 <div id="dash-markets" style="display:flex; flex-direction:column; gap:8px;"></div>
             </div>
@@ -690,6 +709,14 @@
                     <div class="stat-card">
                         <div class="stat-card-label">Avg. Service Level</div>
                         <div class="stat-card-value" id="report-service">0%</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-label">CO2 Emissions</div>
+                        <div class="stat-card-value" id="report-co2" style="color:var(--accent-red)">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-label">ESG Score</div>
+                        <div class="stat-card-value" id="report-esg">0</div>
                     </div>
                 </div>
                 
@@ -778,8 +805,19 @@ const CONFIG = {
         battery: '#3fb950'
     },
     transport: {
-        ship: { speed: 80, capacity: 500, costPerDispatch: 400, costPerUnit: 0.8, color: '#58a6ff', intervalFactor: 0.5 }, 
-        air: { speed: 1000, capacity: 100, costPerDispatch: 400, costPerUnit: 8.0, color: '#f0f6fc', intervalFactor: 0.2 }
+        ship: { speed: 80, capacity: 500, costPerDispatch: 400, costPerUnit: 0.8, color: '#58a6ff', intervalFactor: 0.5, co2PerUnitDist: 0.005 }, 
+        air: { speed: 1000, capacity: 100, costPerDispatch: 400, costPerUnit: 8.0, color: '#f0f6fc', intervalFactor: 0.2, co2PerUnitDist: 0.25 }
+    },
+    sustainability: {
+        carbonTaxThreshold: 100000, 
+        carbonTaxRate: 0.1,         
+        factoryCO2PerUnit: 0.2,     
+        greenInvestmentCost: 50000,
+        greenInvestmentMultiplier: 1.8,
+        stackingBenefit: {
+            co2Reduction: 0.8,      // 20% reduction per level
+            taxBreak: 0.85          // 15% tax reduction per level
+        }
     },
     gameplay: {
         dayDuration: 5.0, // Seconds per game day
@@ -824,6 +862,9 @@ function getInitialState() {
         yearlySales: 0,
         yearlyLostSales: 0,
         yearlyLostRevenue: 0,
+        yearlyCO2: 0,
+        totalCO2: 0,
+        gxLevel: 0,
         yearlyCashStart: CONFIG.startCash,
         selectedNodeId: null,
         lastTick: 0,
@@ -1413,6 +1454,17 @@ function updateEconomy(dt) {
 
     if (state.day >= 365) { 
         state.day = 365;
+        
+        // Phase 5: Calculate Carbon Tax before report
+        const taxThreshold = CONFIG.sustainability.carbonTaxThreshold;
+        const taxBreakFactor = Math.pow(CONFIG.sustainability.stackingBenefit.taxBreak, state.gxLevel);
+        const taxRate = CONFIG.sustainability.carbonTaxRate * taxBreakFactor;
+        if (state.yearlyCO2 > taxThreshold) {
+            const tax = (state.yearlyCO2 - taxThreshold) * taxRate;
+            state.cash -= tax;
+            showNotification(`Carbon Tax Deducted: ${Utils.fmtCurrency(tax)}`, "#f85149");
+        }
+
         if (state.currentYear >= state.durationYears) endGame('complete'); 
         else showYearlyReport();
         return; 
@@ -1476,6 +1528,12 @@ function updateEconomy(dt) {
                 state.cash -= actualProd * rawCost;
                 node.inventory += actualProd;
                 
+                // Phase 5: Production CO2 (Stacking)
+                const greenFactor = Math.pow(CONFIG.sustainability.stackingBenefit.co2Reduction, state.gxLevel);
+                const co2 = actualProd * CONFIG.sustainability.factoryCO2PerUnit * greenFactor;
+                state.totalCO2 += co2;
+                state.yearlyCO2 += co2;
+
                 // Update node's raw cost tracking for display
                 node.costs.raw = rawCost; 
             }
@@ -1514,6 +1572,12 @@ function updateEconomy(dt) {
                 const baseMakeCost = node.id === 'china' ? 5.0 : (node.id === 'vietnam' ? 4.0 : 6.0);
                 const makeCost = baseMakeCost * automationFactor;
                 state.cash -= actualProd * makeCost;
+
+                // Phase 5: Production CO2 (Stacking)
+                const greenFactor = Math.pow(CONFIG.sustainability.stackingBenefit.co2Reduction, state.gxLevel);
+                const co2 = actualProd * CONFIG.sustainability.factoryCO2PerUnit * greenFactor;
+                state.totalCO2 += co2;
+                state.yearlyCO2 += co2;
 
                 // Show production particle occasionally
                 if (Math.random() < 0.02) {
@@ -1719,7 +1783,15 @@ function updateUnits(dt) {
         }
 
         const dist = Math.max(1, route.totalVisualDistance);
-        u.progress += (speedPx * dt) / dist;
+        const step = (speedPx * dt) / dist;
+        u.progress += step;
+
+        // Phase 5: Transport CO2 (Stacking)
+        const transportCfg = CONFIG.transport[u.type];
+        const greenFactor = Math.pow(CONFIG.sustainability.stackingBenefit.co2Reduction, state.gxLevel);
+        const co2 = u.cargo * (step * dist) * transportCfg.co2PerUnitDist * greenFactor;
+        state.totalCO2 += co2;
+        state.yearlyCO2 += co2;
 
         u.quality = Math.max(0.1, u.quality - dt * 0.001);
 
@@ -1863,7 +1935,7 @@ function render() {
         nodes.forEach(n => {
             const [x, y] = state.projection(n.coords);
             const isSel = state.selectedNodeId === n.id;
-            const r = (isSel ? 14 : 9) / transform.k;
+            const r = (isSel ? 16 : 11) / transform.k;
             
             // Unified Event Effect
             const activeEvent = events.find(e => e.targetId === n.id);
@@ -1988,11 +2060,24 @@ d3.select("#map-svg").on("click", (event) => {
     const [mx, my] = d3.pointer(event);
     const tx = (mx - state.transform.x) / state.transform.k;
     const ty = (my - state.transform.y) / state.transform.k;
-    const clicked = state.nodes.find(n => { 
+    
+    let closestNode = null;
+    let minDistance = Infinity;
+
+    state.nodes.forEach(n => {
         const [nx, ny] = state.projection(n.coords); 
-        return Math.hypot(nx - tx, ny - ty) < 25/state.transform.k; 
+        const dist = Math.hypot(nx - tx, ny - ty);
+        const hitRadius = (n.locked ? 40 : 30) / state.transform.k;
+        
+        if (dist < hitRadius) {
+            if (dist < minDistance) {
+                minDistance = dist;
+                closestNode = n;
+            }
+        }
     });
-    if (clicked) openSheet(clicked); else closePanel();
+
+    if (closestNode) openSheet(closestNode); else closePanel();
 });
 
 function openSheet(node) {
@@ -2088,7 +2173,7 @@ function updateSheetStats(n) {
                 const canAfford = state.cash >= cost;
                 
                 let h = `<div class="stat-card" style="grid-column: span 2; padding:20px; text-align:center; background:rgba(255,255,255,0.02);">
-                    <div style="font-size:14px; color:var(--text-secondary); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">New Hub Opportunity</div>
+                    <div style="font-size:14px; color:var(--text-secondary); margin-bottom:12px; letter-spacing:0.5px;">New Hub Opportunity</div>
                     <div style="font-size:24px; font-weight:bold; color:var(--text-primary); margin-bottom:8px;">${n.name}</div>
                     <div style="font-size:12px; color:var(--text-secondary); margin-bottom:20px; line-height:1.6;">
                         Type: <span style="color:${CONFIG.colors[n.type]}; font-weight:bold;">${typeValue}</span><br>
@@ -2464,9 +2549,16 @@ function showYearlyReport() {
     const totalPotential = state.yearlySales + state.yearlyLostSales;
     const serviceLevel = totalPotential > 0 ? state.yearlySales / totalPotential : 1.0;
     
+    // ESG Score: (Service Level * 40) + (Profitability * 40) + (Environmental * 20)
+    const profitScore = Math.min(100, (rev / 50000) * 100);
+    const envScore = Math.max(0, 100 - (state.yearlyCO2 / 1000)); 
+    const esgScore = Math.floor((serviceLevel * 40) + (Math.max(0, profitScore) * 0.4) + (envScore * 0.2));
+
     document.getElementById('report-year').innerText = state.currentYear;
     document.getElementById('report-revenue').innerText = Utils.fmtCurrency(rev);
     document.getElementById('report-service').innerText = (serviceLevel * 100).toFixed(0) + '%';
+    document.getElementById('report-co2').innerText = Utils.formatInt(state.yearlyCO2) + ' t';
+    document.getElementById('report-esg').innerText = esgScore;
     document.getElementById('next-year').innerText = state.currentYear + 1;
     document.getElementById('report-modal').style.display = 'flex';
 }
@@ -2480,6 +2572,7 @@ window.continueGame = () => {
     state.yearlySales = 0;
     state.yearlyLostSales = 0;
     state.yearlyLostRevenue = 0;
+    state.yearlyCO2 = 0;
     document.getElementById('year-display').innerText = `Year ${state.currentYear} / ${state.durationYears}`;
     setSpeed(state.preReportSpeed || 1); // Restore speed
 };
@@ -2505,13 +2598,32 @@ window.toggleHistory = () => {
 function updateDashboard() {
     if (document.getElementById('dashboard-modal').style.display === 'none') return;
     document.getElementById('dash-cash').innerText = Utils.fmtCurrency(state.cash);
-    document.getElementById('dash-inv').innerText = Utils.formatInt(state.nodes.reduce((a,n) => a + n.inventory, 0));
+    document.getElementById('dash-inv').innerText = Utils.formatInt(state.nodes.filter(n => !n.locked).reduce((a,n) => a + n.inventory, 0));
     document.getElementById('dash-ships').innerText = Utils.formatInt(state.units.filter(u => u.type === 'ship').length);
     document.getElementById('dash-planes').innerText = Utils.formatInt(state.units.filter(u => u.type === 'air').length);
+    document.getElementById('dash-co2').innerText = Utils.formatInt(state.totalCO2) + ' t';
+
+    const gxBtn = document.getElementById('gx-btn');
+    if (gxBtn) {
+        const base = CONFIG.sustainability.greenInvestmentCost;
+        const nextCost = Math.floor(base * Math.pow(CONFIG.sustainability.greenInvestmentMultiplier, state.gxLevel));
+        const reduction = Math.floor((1 - Math.pow(CONFIG.sustainability.stackingBenefit.co2Reduction, state.gxLevel)) * 100);
+        
+        gxBtn.innerText = `Invest in GX Level ${state.gxLevel + 1} ($${Utils.formatInt(nextCost/1000)}k)`;
+        
+        // Update GX section info if needed, or just the button
+        const gxSection = document.getElementById('gx-section');
+        if (gxSection) {
+            const infoText = gxSection.querySelector('p');
+            if (infoText) {
+                infoText.innerText = `Current GX Level: ${state.gxLevel} (Total CO2 Reduction: ${reduction}%). Next level reduces emissions and taxes further.`;
+            }
+        }
+    }
 
     const mList = document.getElementById('dash-markets');
     let html = `<div style="display:grid; grid-template-columns: 1fr 1.5fr 1fr 1fr; gap:8px; padding:8px 12px; font-size:12px; color:var(--text-secondary); text-transform:uppercase; font-weight:700;"><div>Market</div><div>Stock / Cap</div><div>Demand</div><div>Status</div></div>`;
-    html += state.nodes.filter(n => n.type === 'market').map(m => {
+    html += state.nodes.filter(n => n.type === 'market' && !n.locked).map(m => {
         const fillRate = m.inventory / m.maxInventory;
         let status = fillRate < 0.1 ? '<span style="color:var(--accent-red)">Starving</span>' : (fillRate > 0.9 ? '<span style="color:var(--accent-yellow)">Full</span>' : '<span style="color:var(--accent-green)">Healthy</span>');
         return `<div style="background:rgba(255,255,255,0.03); padding:10px 12px; border-radius:8px; display:grid; grid-template-columns: 1fr 1.5fr 1fr 1fr; gap:8px; align-items:center; border:1px solid var(--panel-border); margin-bottom:6px;">
@@ -2619,6 +2731,21 @@ window.unlockNode = (id) => {
     }
 };
 
+window.investGX = () => {
+    const base = CONFIG.sustainability.greenInvestmentCost;
+    const currentLvl = state.gxLevel;
+    const cost = Math.floor(base * Math.pow(CONFIG.sustainability.greenInvestmentMultiplier, currentLvl));
+    
+    if (state.cash >= cost) {
+        state.cash -= cost;
+        state.gxLevel++;
+        showNotification(`GX Level ${state.gxLevel} Active!`, "#3fb950");
+        updateDashboard();
+    } else {
+        showNotification("Not enough cash for GX!", "#f85149");
+    }
+};
+
 window.investNode = (id, type) => {
     const node = state.nodes.find(n => n.id === id);
     if (!node) return;
@@ -2714,6 +2841,14 @@ window.endGame = (reason = 'complete') => {
     const avgInv = histInv.length > 0 ? histInv.reduce((a,b)=>a+b,0)/histInv.length : state.nodes.reduce((a,n)=>a+n.inventory,0);
     const turnover = avgInv > 0 ? state.totalSales / avgInv : 0;
     document.getElementById('final-turnover').innerText = turnover.toFixed(1) + 'x';
+
+    // 5. Phase 5: CO2 & ESG
+    document.getElementById('final-co2').innerText = Utils.formatInt(state.totalCO2) + ' t';
+    
+    const profitScore = Math.min(100, (state.cash / (1000000 * state.durationYears)) * 100);
+    const envScore = Math.max(0, 100 - (state.totalCO2 / (10000 * state.durationYears))); 
+    const finalESG = Math.floor((serviceLevel * 40) + (Math.max(0, profitScore) * 0.4) + (envScore * 0.2));
+    document.getElementById('final-esg').innerText = finalESG;
 };
 
 window.replayGame = () => { 
