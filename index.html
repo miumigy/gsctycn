@@ -742,19 +742,19 @@ const WAYPOINTS = {
 };
 
 const NODES_DATA = [
-    { id: 'brazil', name: 'Brazil', type: 'supply', coords: [-40, -20], portCoords: [-40, -20], production: 25, maxInventory: 3000 },
-    { id: 'sa', name: 'South Africa', type: 'supply', coords: [18, -34], portCoords: [18, -34], production: 6 },
-    { id: 'congo', name: 'Congo', type: 'supply', coords: [12, -6], portCoords: [12, -6], production: 18, maxInventory: 2500 },
-    { id: 'china', name: 'China', type: 'make', coords: [122, 30], portCoords: [122, 30], capacity: 2000, processRate: 25 },
-    { id: 'india', name: 'India', type: 'make', coords: [72.8, 18.9], portCoords: [72.8, 18.9], capacity: 1750, processRate: 20 },
-    { id: 'vietnam', name: 'Vietnam', type: 'make', coords: [107, 10], portCoords: [107, 10], capacity: 1500, processRate: 15 },
+    { id: 'brazil', name: 'Brazil', type: 'supply', coords: [-40, -20], portCoords: [-40, -20], production: 25, maxInventory: 3000, resourceType: 'lithium' },
+    { id: 'sa', name: 'South Africa', type: 'supply', coords: [18, -34], portCoords: [18, -34], production: 6, resourceType: 'cobalt' },
+    { id: 'congo', name: 'Congo', type: 'supply', coords: [12, -6], portCoords: [12, -6], production: 18, maxInventory: 2500, resourceType: 'cobalt' },
+    { id: 'china', name: 'China', type: 'make', coords: [122, 30], portCoords: [122, 30], capacity: 2000, processRate: 25, bom: { 'lithium': 1, 'cobalt': 1 } },
+    { id: 'india', name: 'India', type: 'make', coords: [72.8, 18.9], portCoords: [72.8, 18.9], capacity: 1750, processRate: 20, bom: { 'lithium': 1, 'cobalt': 1 } },
+    { id: 'vietnam', name: 'Vietnam', type: 'make', coords: [107, 10], portCoords: [107, 10], capacity: 1500, processRate: 15, bom: { 'lithium': 1, 'cobalt': 1 } },
     { id: 'usa', name: 'USA', type: 'market', coords: [-90, 29], portCoords: [-90, 29], baseDemand: 25 },
     { id: 'germany', name: 'Germany', type: 'market', coords: [8, 54], portCoords: [8, 54], baseDemand: 20 },
     { id: 'japan', name: 'Japan', type: 'market', coords: [139.7, 35.6], portCoords: [139.7, 35.6], baseDemand: 15 },
     
     // Phase 3: Unlockable Strategic Hubs
-    { id: 'australia', name: 'Australia', type: 'supply', coords: [115.8, -32.0], portCoords: [115.8, -32.0], production: 30, maxInventory: 3000, locked: true, unlockCost: 25000 }, // Perth
-    { id: 'mexico', name: 'Mexico', type: 'make', coords: [-96.1, 19.2], portCoords: [-96.1, 19.2], capacity: 1800, processRate: 22, locked: true, unlockCost: 40000 }, // Veracruz
+    { id: 'australia', name: 'Australia', type: 'supply', coords: [115.8, -32.0], portCoords: [115.8, -32.0], production: 30, maxInventory: 3000, locked: true, unlockCost: 25000, resourceType: 'lithium' }, // Perth
+    { id: 'mexico', name: 'Mexico', type: 'make', coords: [-96.1, 19.2], portCoords: [-96.1, 19.2], capacity: 1800, processRate: 22, locked: true, unlockCost: 40000, bom: { 'lithium': 1, 'cobalt': 1 } }, // Veracruz
     { id: 'uk', name: 'UK', type: 'market', coords: [0.1, 51.5], portCoords: [0.1, 51.5], baseDemand: 18, locked: true, unlockCost: 30000 }, // London
     { id: 'nigeria', name: 'Nigeria', type: 'market', coords: [3.4, 6.5], portCoords: [3.4, 6.5], baseDemand: 25, locked: true, unlockCost: 35000 } // Lagos
 ];
@@ -767,7 +767,10 @@ const CONFIG = {
         market: '#10b981',
         seaPath: 'rgba(88, 166, 255, 0.3)',
         airPath: 'rgba(255, 255, 255, 0.15)',
-        text: '#f0f6fc'
+        text: '#f0f6fc',
+        lithium: '#58a6ff',
+        cobalt: '#bc8cff',
+        battery: '#3fb950'
     },
     transport: {
         ship: { speed: 80, capacity: 500, costPerDispatch: 400, costPerUnit: 0.8, color: '#58a6ff', intervalFactor: 2.5 }, 
@@ -924,10 +927,15 @@ function initGameLogic() {
 
         // Phase 3: Handle locked nodes
         if (n.locked) {
+            // Phase 4: Initialize inputs for factories (BOM)
+            const inputs = n.type === 'make' ? Object.keys(n.bom || {}).reduce((acc, k) => ({ ...acc, [k]: 0 }), {}) : null;
+
             return {
                 ...n,
                 inventory: 0,
                 maxInventory: n.maxInventory || 1500,
+                inputs: inputs,
+                stalledDays: 0,
                 demand: 0, // Demand activates on unlock
                 level: 1,
                 levels: { production: 1, quality: 1, automation: 1 },
@@ -944,10 +952,15 @@ function initGameLogic() {
             };
         }
 
+        // Phase 4: Initialize inputs for factories (BOM)
+        const inputs = n.type === 'make' ? Object.keys(n.bom || {}).reduce((acc, k) => ({ ...acc, [k]: 0 }), {}) : null;
+
         return {
             ...n,
             inventory: n.type === 'supply' ? 500 : 100, 
             maxInventory: n.maxInventory || n.capacity || 1500,
+            inputs: inputs,
+            stalledDays: 0,
             demand: 0,
             level: 1, // Legacy level tracking
             levels: { production: 1, quality: 1, automation: 1 }, // New specialized levels
@@ -1037,12 +1050,14 @@ function createRoute(fromNode, toNode, type, isCommissioned = true) {
 
     const speedPx = CONFIG.transport[type].speed * 0.04; 
     const travelTimeMs = (totalVisualDist / speedPx) * 1000;
+    const travelTimeDays = (travelTimeMs / 1000) / CONFIG.gameplay.dayDuration;
 
     let targetDemand = toNode.type === 'market' ? toNode.baseDemand : (toNode.type === 'make' ? toNode.processRate : 10);
     const intervalFactor = CONFIG.transport[type].intervalFactor;
 
     let interval = (CONFIG.transport[type].capacity / Math.max(1, targetDemand)) * 1000 * intervalFactor;
     interval = Math.max(2500, Math.min(150000, interval));
+    const intervalDays = (interval / 1000) / CONFIG.gameplay.dayDuration;
 
     return {
         id: `${fromNode.id}-${toNode.id}-${type}`,
@@ -1052,6 +1067,8 @@ function createRoute(fromNode, toNode, type, isCommissioned = true) {
         commissionCost: type === 'ship' ? 5000 : 2000, // Cost to open route
         timer: Math.random() * interval, 
         interval: interval,
+        travelTimeDays: travelTimeDays,
+        intervalDays: intervalDays,
         pathCoords: pathCoords,
         visualStops: visualStops,           
         totalVisualDistance: totalVisualDist 
@@ -1444,6 +1461,43 @@ function updateEconomy(dt) {
                 node.costs.raw = rawCost; 
             }
         }
+
+        if (node.type === 'make') {
+            const room = node.maxInventory - node.inventory;
+            const potentialProd = node.processRate * dailyToPerSec * dt;
+            
+            // BOM Check: How many can we actually make based on available components?
+            let maxByBOM = potentialProd;
+            if (node.bom) {
+                for (const [resource, amountNeeded] of Object.entries(node.bom)) {
+                    const available = (node.inputs && node.inputs[resource]) ? node.inputs[resource] : 0;
+                    const possibleWithThisResource = available / amountNeeded;
+                    maxByBOM = Math.min(maxByBOM, possibleWithThisResource);
+                }
+            }
+            
+            const actualProd = Math.min(maxByBOM, room);
+            
+            if (actualProd > 0.001) {
+                // Consume inputs
+                if (node.bom) {
+                    for (const [resource, amountNeeded] of Object.entries(node.bom)) {
+                        node.inputs[resource] -= actualProd * amountNeeded;
+                    }
+                }
+                node.inventory += actualProd;
+                node.stalledDays = 0; // Reset stall counter
+                
+                // Show production particle occasionally
+                if (Math.random() < 0.02) {
+                    spawnParticle(state.projection(node.coords), "⚙️", "#f59e0b");
+                }
+            } else if (potentialProd > 0.1 && maxByBOM < 0.1 && room > 10) {
+                 // Stalled due to missing components (Synchronization Risk)
+                 node.stalledDays = (node.stalledDays || 0) + dayInc;
+                 if (Math.random() < 0.01) node.alert = 2.0;
+            }
+        }
         
         // Apply Quality Investment Effect
         const qualityLevel = node.levels.quality || 1;
@@ -1574,9 +1628,12 @@ function dispatchUnit(route) {
         const unitCosts = { ...from.costs };
         unitCosts.transport += transportCostPerUnit;
 
+        const resourceType = from.type === 'supply' ? from.resourceType : 'battery';
+
         state.units.push({ 
             routeId: route.id, 
             type: route.type, 
+            resourceType: resourceType,
             pathCoords: route.pathCoords, 
             progress: 0, 
             cargo: amount,
@@ -1623,18 +1680,27 @@ function updateUnits(dt) {
                 state.cash -= u.cargo * makeCost; 
             }
 
-            const totalStock = dest.inventory + u.cargo;
-            if (totalStock > 0) {
-                dest.quality = ((dest.inventory * dest.quality) + (u.cargo * u.quality)) / totalStock;
+            // Phase 4: Refined stock calculation for merging quality/costs
+            const currentStockForMerge = (dest.type === 'make' && dest.inputs) 
+                ? (Object.values(dest.inputs).reduce((a, b) => a + b, 0) + dest.inventory)
+                : dest.inventory;
+            const totalStockForMerge = currentStockForMerge + u.cargo;
+
+            if (totalStockForMerge > 0) {
+                dest.quality = ((currentStockForMerge * dest.quality) + (u.cargo * u.quality)) / totalStockForMerge;
                 
                 // Merge detailed costs
                 Object.keys(dest.costs).forEach(key => {
-                    dest.costs[key] = ((dest.inventory * (dest.costs[key] || 0)) + (u.cargo * (u.costs[key] || 0))) / totalStock;
+                    dest.costs[key] = ((currentStockForMerge * (dest.costs[key] || 0)) + (u.cargo * (u.costs[key] || 0))) / totalStockForMerge;
                 });
                 dest.unitCost = Object.values(dest.costs).reduce((a, b) => a + b, 0);
             }
             
-            dest.inventory += u.cargo;
+            if (dest.type === 'make' && dest.inputs && dest.inputs[u.resourceType] !== undefined) {
+                dest.inputs[u.resourceType] += u.cargo;
+            } else {
+                dest.inventory += u.cargo;
+            }
             state.units.splice(i, 1);
         }
     }
@@ -2012,7 +2078,46 @@ function updateSheetStats(n) {
             }
             else h += `<div class="stat-card"><div class="stat-card-label">Rate</div><div class="stat-card-value"><span id="stat-rate">${(n.type==='supply'?n.production:n.processRate).toFixed(1)}</span> /d</div></div>`;
             
+            if (n.type === 'make' && n.inputs) {
+                let inputHTML = `<div class="stat-card" style="grid-column: span 2;">
+                    <div class="stat-card-label">BOM Components (Inventory)</div>
+                    <div style="display:flex; flex-direction:column; gap:6px; margin-top:8px;" id="stat-inputs">`;
+                for (const [res, amount] of Object.entries(n.inputs)) {
+                    const color = CONFIG.colors[res] || 'var(--text-primary)';
+                    inputHTML += `<div style="display:flex; justify-content:space-between; font-size:12px;">
+                        <span style="color:${color}; font-weight:bold;">${res.toUpperCase()}</span>
+                        <span><span id="stat-input-${res}">${Math.floor(amount)}</span> units</span>
+                    </div>`;
+                }
+                
+                // Add Stalled Status
+                const isStalled = n.stalledDays > 0.1;
+                inputHTML += `<div style="margin-top:10px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.1); display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:11px; color:var(--text-secondary);">Sync Status:</span>
+                    <span id="stat-stall-status" style="font-size:12px; font-weight:bold; color:${isStalled ? 'var(--accent-red)' : 'var(--accent-green)'}">
+                        ${isStalled ? `STALLED (${n.stalledDays.toFixed(1)}d)` : 'OPERATIONAL'}
+                    </span>
+                </div>`;
+
+                inputHTML += `</div></div>`;
+                h += inputHTML;
+            }
+
             container.innerHTML = h;
+        }
+
+        // Update Dynamic values
+        if (n.type === 'make' && n.inputs) {
+            for (const [res, amount] of Object.entries(n.inputs)) {
+                const el = document.getElementById(`stat-input-${res}`);
+                if (el) el.innerText = Math.floor(amount);
+            }
+            const stallEl = document.getElementById('stat-stall-status');
+            if (stallEl) {
+                const isStalled = n.stalledDays > 0.1;
+                stallEl.innerText = isStalled ? `STALLED (${n.stalledDays.toFixed(1)}d)` : 'OPERATIONAL';
+                stallEl.style.color = isStalled ? 'var(--accent-red)' : 'var(--accent-green)';
+            }
         }
 
         // Update Buttons and ROI
@@ -2141,7 +2246,19 @@ function renderSheetRoutes(n) {
         if (tn && tn.locked) return;
         
         const air = out.find(r => r.to === tid && r.type === 'air'), ship = out.find(r => r.to === tid && r.type === 'ship');
-        c.innerHTML += `<div class="route-card"><div class="route-row"><span class="route-dest">To ${tn.name}</span></div>${renderCommissionOpt(air, 'Air', iconAir, '$1.5k')}${renderCommissionOpt(ship, 'Sea', iconShip, '$200')}</div>`;
+        const resourceName = n.type === 'supply' ? n.resourceType.toUpperCase() : 'BATTERY';
+        const resourceColor = CONFIG.colors[n.type === 'supply' ? n.resourceType : 'battery'] || 'var(--text-primary)';
+
+        c.innerHTML += `<div class="route-card">
+            <div class="route-row" style="margin-bottom:8px;">
+                <div style="display:flex; flex-direction:column;">
+                    <span class="route-dest">To ${tn.name}</span>
+                    <span style="font-size:10px; color:${resourceColor}; font-weight:bold; letter-spacing:0.5px;">${resourceName}</span>
+                </div>
+            </div>
+            ${renderCommissionOpt(air, 'Air', iconAir, '$1.5k')}
+            ${renderCommissionOpt(ship, 'Sea', iconShip, '$200')}
+        </div>`;
     });
 }
 
@@ -2162,15 +2279,23 @@ function renderCommissionOpt(r, l, i, c) {
         </div>`;
     }
 
-    const days = (r.interval / 5000).toFixed(1);
+    const intervalDays = (r.interval / CONFIG.gameplay.dayDuration / 1000).toFixed(1);
+    const totalLead = (r.travelTimeDays || 0) + parseFloat(intervalDays);
+    
     return `<div class="transport-option" style="flex-direction:column; align-items:flex-start; gap:8px;">
         <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
-            <div class="transport-info"><span>${i}</span><span style="font-weight:500;">${l}</span><span class="transport-cost">${c}</span></div>
+            <div class="transport-info"><span>${i}</span>
+                <div style="display:flex; flex-direction:column;">
+                    <span style="font-weight:500;">${l}</span>
+                    <span style="font-size:10px; color:var(--text-secondary);">LT: <span style="font-weight:bold; color:var(--text-primary);" id="lt-${r.id}">${totalLead.toFixed(1)}d</span></span>
+                </div>
+                <span class="transport-cost">${c}</span>
+            </div>
             <label class="switch" onclick="event.stopPropagation()"><input type="checkbox" ${r.active?'checked':''} onchange="toggleRoute('${r.id}')"><span class="slider"></span></label>
         </div>
         <div style="width:100%; display:${r.active?'flex':'none'}; align-items:center; gap:8px;" id="ctrl-${r.id}">
-            <span style="font-size:11px; color:var(--text-secondary); white-space:nowrap;">Interval: <span id="val-${r.id}">${days}</span>d</span>
-            <input type="range" min="0.5" max="30" step="0.5" value="${days}" style="flex:1" oninput="updateInterval('${r.id}', this.value)">
+            <span style="font-size:11px; color:var(--text-secondary); white-space:nowrap;">Interval: <span id="val-${r.id}">${intervalDays}</span>d</span>
+            <input type="range" min="0.5" max="30" step="0.5" value="${intervalDays}" style="flex:1" oninput="updateInterval('${r.id}', this.value)">
         </div>
     </div>`;
 }
@@ -2194,7 +2319,15 @@ window.commissionRoute = (id) => {
 
 window.updateInterval = (id, val) => {
     const r = state.routes.find(x => x.id === id);
-    if (r) { r.interval = val * 5000; document.getElementById(`val-${id}`).innerText = val; }
+    if (r) { 
+        r.interval = val * CONFIG.gameplay.dayDuration * 1000; 
+        document.getElementById(`val-${id}`).innerText = val; 
+        const ltEl = document.getElementById(`lt-${id}`);
+        if (ltEl) {
+            const totalLead = (r.travelTimeDays || 0) + parseFloat(val);
+            ltEl.innerText = totalLead.toFixed(1) + 'd';
+        }
+    }
 };
 
 window.toggleRoute = id => { 
