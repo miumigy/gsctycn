@@ -2639,7 +2639,10 @@ window.replayGame = () => {
     document.getElementById('history-modal').style.display = 'none';
     document.getElementById('report-modal').style.display = 'none';
     closePanel(); // Ensure panel is closed
-    resetState(); initGameLogic(); setSpeed(0); resetZoom(); updateUI(); document.getElementById('title-screen').style.display = 'flex'; 
+    const prevDuration = state.durationYears;
+    resetState(); 
+    setDuration(prevDuration); // Sync UI and state after reset
+    initGameLogic(); setSpeed(0); resetZoom(); updateUI(); document.getElementById('title-screen').style.display = 'flex'; 
 };
 
 function resetState() {
@@ -2653,6 +2656,7 @@ function resetState() {
         g: state.g,
         width: state.width,
         height: state.height,
+        durationYears: state.durationYears, // Preserve user selection
         transform: d3.zoomIdentity // Reset zoom on replay
     };
 
