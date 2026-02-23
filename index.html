@@ -521,7 +521,8 @@
 </div>
 
 <div id="end-screen" class="overlay-screen" style="display:none;">
-    <h1>Game Over</h1>
+    <h1 id="end-title">Game Over</h1>
+    <p id="end-message" style="color:var(--text-secondary); margin-bottom:20px;">Your supply chain journey has concluded.</p>
     <div class="final-score">
         <div class="score-label">Final Net Cash</div>
         <div class="score-value" id="final-cash">$0</div>
@@ -1401,12 +1402,18 @@ function updateEvents(dt) {
 }
 
 function updateEconomy(dt) {
+    // Bankruptcy check
+    if (state.cash <= 0) {
+        endGame('bankrupt');
+        return;
+    }
+
     const dayInc = dt / CONFIG.gameplay.dayDuration;
     state.day += dayInc;
 
     if (state.day >= 365) { 
         state.day = 365;
-        if (state.currentYear >= state.durationYears) endGame(); 
+        if (state.currentYear >= state.durationYears) endGame('complete'); 
         else showYearlyReport();
         return; 
     }
@@ -2668,10 +2675,23 @@ window.startGame = () => {
     setSpeed(0); updateUI(); 
 };
 
-window.endGame = () => {
+window.endGame = (reason = 'complete') => {
     state.speed = 0; document.getElementById('end-screen').style.display = 'flex';
     document.getElementById('final-cash').innerText = Utils.fmtCurrency(state.cash);
     
+    const titleEl = document.getElementById('end-title');
+    const msgEl = document.getElementById('end-message');
+    
+    if (reason === 'bankrupt') {
+        titleEl.innerText = "Bankruptcy";
+        titleEl.style.color = "var(--accent-red)";
+        msgEl.innerText = "Your cash reserves have been depleted. The operation has been liquidated.";
+    } else {
+        titleEl.innerText = "Game Over";
+        titleEl.style.color = "var(--text-primary)";
+        msgEl.innerText = "Your supply chain journey has concluded.";
+    }
+
     // 1. Avg Freshness at Markets
     const markets = state.nodes.filter(n => n.type === 'market');
     const avgFresh = markets.reduce((acc, m) => acc + m.quality, 0) / (markets.length || 1);
