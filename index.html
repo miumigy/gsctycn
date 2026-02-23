@@ -2020,17 +2020,21 @@ function updateSheetStats(n) {
         
         if (container.getAttribute('data-node-id') !== n.id) {
             container.setAttribute('data-node-id', n.id);
+            const capitalize = s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
             
             // LOCKED NODE UI
             if (n.locked) {
                 const cost = n.unlockCost;
                 const canAfford = state.cash >= cost;
+                let resName = n.type === 'supply' ? capitalize(n.resourceType) : (n.type === 'make' ? 'Battery' : 'Market');
+                let resColor = CONFIG.colors[n.type === 'supply' ? n.resourceType : (n.type === 'make' ? 'battery' : 'market')] || 'var(--text-primary)';
                 
                 let h = `<div class="stat-card" style="grid-column: span 2; padding:20px; text-align:center; background:rgba(255,255,255,0.02);">
                     <div style="font-size:14px; color:var(--text-secondary); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">New Hub Opportunity</div>
                     <div style="font-size:24px; font-weight:bold; color:var(--text-primary); margin-bottom:8px;">${n.name}</div>
                     <div style="font-size:12px; color:var(--text-secondary); margin-bottom:20px;">
-                        Type: <span style="color:${CONFIG.colors[n.type]}; font-weight:bold;">${n.type.toUpperCase()}</span><br>
+                        Type: <span style="color:${CONFIG.colors[n.type]}; font-weight:bold;">${capitalize(n.type)}</span><br>
+                        Resource: <span style="color:${resColor}; font-weight:bold;">${resName}</span><br>
                         Potential: ${n.type === 'market' ? n.baseDemand + ' Demand/day' : (n.type === 'supply' ? n.production + ' Prod/day' : n.capacity + ' Capacity')}
                     </div>
                     <div style="font-size:32px; font-weight:800; color:${canAfford ? 'var(--accent-green)' : 'var(--text-secondary)'}; margin-bottom:20px;">
@@ -2053,7 +2057,6 @@ function updateSheetStats(n) {
 
             // UNLOCKED NODE UI (Existing logic)
             // Build specialized investment UI
-            const capitalize = s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
             let resName = n.type === 'supply' ? capitalize(n.resourceType) : (n.type === 'make' ? 'Battery' : 'Market');
             let resColor = CONFIG.colors[n.type === 'supply' ? n.resourceType : (n.type === 'make' ? 'battery' : 'market')] || 'var(--text-primary)';
             
