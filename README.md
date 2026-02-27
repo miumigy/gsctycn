@@ -1,64 +1,60 @@
-# Global Supply Chain Tycoon
+# Global Supply Chain Tycoon (GSCT)
 
 ## Overview
-Global Supply Chain Tycoon (GSCT) is a real-time business simulation game focused on Global Supply Chain Management (SCM).
-As the CEO of a logistics conglomerate, you must optimize the entire process from raw material procurement to factory production and final delivery to markets, aiming to maximize profits over a 365-day period.
+Global Supply Chain Tycoon (GSCT) is a high-fidelity, real-time business simulation game focused on **Global Supply Chain Management (SCM)**.
+As the CEO of a global logistics and manufacturing conglomerate, you must architect a resilient and sustainable supply chain network. Balance the complexities of multi-stage production (BOM), strategic capital investment, and the growing demand for Green Transformation (GX) to maximize your **ESG Score** over multiple years.
 
-This is not just a game about moving goods. You must carefully calculate transport costs, inventory turnover, and most importantly, **Product Freshness**, to solve complex logistical puzzles.
+This simulation challenges players to solve the fundamental trade-offs of modern logistics: Cost vs. Speed vs. Sustainability vs. Service Level.
 
-## Key Features
+## Core Mechanics
 
-### 1. Freshness System
-Every product has a "Freshness" value.
-*   **Premium (Freshness 80%+):** Freshly made or delivered goods. Sells for up to **3x** the base price.
-*   **Stale (Freshness 40%-):** Aged goods. Value plummets, often leading to a **Loss** when sold below cost.
-*   Freshness decays constantly during transport and storage.
+### 1. Multi-Stage Production (BOM & Synchronization)
+Move beyond simple logistics. GSCT features a **Bill of Materials (BOM)** system:
+*   **Assembly:** Finished goods (e.g., Electronics) require multiple components (e.g., Raw Materials and Parts) delivered to a factory.
+*   **Lead Time Synchronization:** Different components have different procurement lead times. A "single missing screw" will stop your entire assembly line, causing costly delays.
 
-### 2. Logistics & Cost Trade-offs
-Choose your transport mode carefully:
-*   ✈️ **Air Freight:** Ultra-fast. Maintains high freshness (Premium price) but comes with high transport costs.
-*   🚢 **Sea Freight:** High volume. Low cost per trip, but goods lose freshness during the long voyage.
+### 2. Strategic Investment & Network Expansion
+Design and grow your global footprint:
+*   **Selective Upgrades:** Choose between **Automation** (cost reduction), **Quality Control** (freshness preservation), and **Capacity Expansion** (throughput increase).
+*   **ROI Analytics:** Use built-in financial tools to estimate the Return on Investment (ROI) for every upgrade.
+*   **Hub Discovery:** Spend capital to unlock new strategic locations and commission new maritime routes.
 
-Additionally, **Load Factor** critically impacts your Unit Cost.
-Shipping "air" (dispatching half-empty vehicles) causes the cost per unit to skyrocket, destroying your profit margins.
+### 3. Sustainability & Green Transformation (GX)
+Navigate the transition to a low-carbon economy:
+*   **Carbon Footprint:** Every transport mode (Air vs. Sea) and factory operation generates CO2.
+*   **Carbon Tax:** High emissions lead to financial penalties.
+*   **Green Investment:** Upgrade to Electric Cargo Ships and Renewable Energy Factories to reduce taxes and improve your ESG rating.
 
-### 3. Inventory Strategy
-*   **Pull System:** Deliver only what is needed when it is needed. Minimizing inventory keeps freshness high (Just-In-Time strategy).
-*   **Frequency Control:** Use the slider on each route to adjust dispatch intervals (0.5 days to 30 days). Decide between "Frequent small batches (High Freshness)" or "Bulk shipments (Low Cost)."
+### 4. Advanced Logistics & Freshness
+*   **Freshness Decay:** Products lose value over time. High freshness (80%+) commands a **3x Premium**, while stale products (<40%) lead to losses.
+*   **Nautical Routing:** Ships follow realistic maritime waypoints (Straits, Canals, Capes), requiring strategic selection of sea lanes.
+*   **Load Factor Optimization:** Avoid "shipping air." High load factors reduce your Unit Cost (TCO), but may increase inventory holding risks.
+
+### 5. Risk Management & Visibility
+*   **Unified Event Engine:** Respond to "Market Spikes" (demand surges) and "Supply Chain Crises" (route blockages or port strikes).
+*   **Business Intelligence (BI):** Access detailed **Cost-to-Serve** breakdowns and **Sensitivity Analysis** graphs to predict how frequency changes impact your margins.
 
 ## How to Play
 
-1.  **Activate Routes:**
-    *   Click on a location/route on the map and toggle the transport switch (Ship/Air) to ON.
-2.  **Adjust Frequency:**
-    *   Use the slider to set the dispatch interval.
-    *   Monitor the "Avg. Unit Cost" to ensure you are achieving an optimal Load Factor.
-3.  **Manage Time:**
-    *   Once ready, hit the Play button (▶) to start the simulation.
-    *   Pause (⏸) at any time to rethink your strategy.
+1.  **Select Duration:** Choose a 1, 3, or 5-year term.
+2.  **Architect the Network:** Unlock nodes, commission routes, and set transport modes (Air/Sea).
+3.  **Optimize Flow:** Use sliders to adjust dispatch frequency. Monitor the **BOM Synchronization** at factories.
+4.  **Invest Wisely:** Use profits to upgrade facilities or expand into new markets based on ROI projections.
+5.  **Monitor KPIs:** Track your performance through the annual report and real-time analytics.
 
-## KPIs (Key Performance Indicators)
-
-At the end of 365 days, you are evaluated on:
-
-*   **Final Net Cash:** Total accumulated profit.
-*   **Avg Freshness:** The average quality of goods delivered to markets globally.
-*   **Missed Sales:** Total volume of sales lost due to stockouts (Supply Chain Failure).
-*   **Inv. Turnover:** Inventory Turnover Rate. Indicates how efficiently you converted stock into revenue.
+## ESG Score (Evaluation)
+At the end of your term, you are evaluated on three pillars:
+*   **Economic (Profit):** Final Net Cash and ROI efficiency.
+*   **Social (Service Level):** Minimizing "Missed Sales" (Supply Chain Resilience).
+*   **Environmental (Sustainability):** Total CO2 emissions and Green Investment ratio.
 
 ## Technology Stack
-*   HTML5 / Canvas API
-*   D3.js (Map rendering & Data visualization)
-*   TopoJSON (World map data)
-*   Vanilla JavaScript (Game Logic)
+*   **Frontend:** HTML5 / Canvas API / Vanilla JavaScript.
+*   **Visualization:** D3.js (Map & Data Viz), TopoJSON.
+*   **Architecture:** Virtual Module pattern for high maintainability.
 
 ## License
 This project is licensed under the MIT License.
-
-## Future Roadmap
-For information on planned features and improvements to enhance SCM learning and gameplay, please refer to our enhancement plans:
-*   [Enhancement Plan (English)](ENHANCE_PLAN.md)
-*   [強化計画 (日本語)](ENHANCE_PLAN_JP.md)
 
 ---
 [日本語版 README](./README_JP.md)
