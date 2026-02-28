@@ -28,7 +28,7 @@ graph LR
     end
 
     subgraph Outbound ["下流物流 (Outbound)"]
-        Delivery((🚚/🚢/✈️ 製品配送))
+        Delivery((🚢/✈️ 製品配送))
     end
 
     subgraph Distribution ["市場"]

@@ -28,7 +28,7 @@ graph LR
     end
 
     subgraph Outbound ["Outbound Logistics"]
-        Delivery((🚚/🚢/✈️ Final Delivery))
+        Delivery((🚢/✈️ Final Delivery))
     end
 
     subgraph Distribution ["Market"]
