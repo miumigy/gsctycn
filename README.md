@@ -28,7 +28,8 @@ graph LR
     end
 
     subgraph Outbound ["Outbound Logistics"]
-        Delivery((🚢/✈️ Final Delivery))
+        Air2((✈️ Air Freight))
+        Sea2((🚢 Sea Freight))
     end
 
     subgraph Distribution ["Market"]
@@ -39,8 +40,10 @@ graph LR
     RM2 --> Air
     Sea --> Fact
     Air --> Fact
-    Fact --> Delivery
-    Delivery --> Mkt
+    Fact --> Sea2
+    Fact --> Air2
+    Sea2 --> Mkt
+    Air2 --> Mkt
 
     style RM1 fill:#fef,stroke:#333
     style RM2 fill:#fef,stroke:#333

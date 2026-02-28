@@ -28,7 +28,8 @@ graph LR
     end
 
     subgraph Outbound ["下流物流 (Outbound)"]
-        Delivery((🚢/✈️ 製品配送))
+        Air2((✈️ 航空便))
+        Sea2((🚢 船便))
     end
 
     subgraph Distribution ["市場"]
@@ -39,8 +40,10 @@ graph LR
     RM2 --> Air
     Sea --> Fact
     Air --> Fact
-    Fact --> Delivery
-    Delivery --> Mkt
+    Fact --> Sea2
+    Fact --> Air2
+    Sea2 --> Mkt
+    Air2 --> Mkt
 
     style RM1 fill:#fef,stroke:#333
     style RM2 fill:#fef,stroke:#333
