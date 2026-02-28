@@ -14,8 +14,8 @@ Move beyond simple logistics. GSCT features a **Bill of Materials (BOM)** system
 ```mermaid
 graph LR
     subgraph Sourcing ["Sourcing"]
-        RM[Raw Material X]
-        PT[Component Y]
+        RM1[Raw Material X]
+        RM2[Raw Material Y]
     end
 
     subgraph Inbound ["Inbound Logistics"]
@@ -35,15 +35,15 @@ graph LR
         Mkt[Global Market]
     end
 
-    RM --> Sea
-    PT --> Air
+    RM1 --> Sea
+    RM2 --> Air
     Sea --> Fact
     Air --> Fact
     Fact --> Delivery
     Delivery --> Mkt
 
-    style RM fill:#fef,stroke:#333
-    style PT fill:#fef,stroke:#333
+    style RM1 fill:#fef,stroke:#333
+    style RM2 fill:#fef,stroke:#333
     style Fact fill:#ddf,stroke:#333
     style Mkt fill:#dfd,stroke:#333
 ```

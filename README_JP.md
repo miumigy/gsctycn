@@ -14,8 +14,8 @@ Global Supply Chain Tycoon (GSCT) は、**グローバル・サプライチェ�
 ```mermaid
 graph LR
     subgraph Sourcing ["調達"]
-        RM[原材料 X]
-        PT[部品 Y]
+        RM1[原材料 X]
+        RM2[原材料 Y]
     end
 
     subgraph Inbound ["上流物流 (Inbound)"]
@@ -35,15 +35,15 @@ graph LR
         Mkt[グローバル市場]
     end
 
-    RM --> Sea
-    PT --> Air
+    RM1 --> Sea
+    RM2 --> Air
     Sea --> Fact
     Air --> Fact
     Fact --> Delivery
     Delivery --> Mkt
 
-    style RM fill:#fef,stroke:#333
-    style PT fill:#fef,stroke:#333
+    style RM1 fill:#fef,stroke:#333
+    style RM2 fill:#fef,stroke:#333
     style Fact fill:#ddf,stroke:#333
     style Mkt fill:#dfd,stroke:#333
 ```
