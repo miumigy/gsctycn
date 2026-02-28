@@ -1,6 +1,8 @@
 # Global Supply Chain Tycoon (GSCT)
 
 ## Overview
+![Game Screenshot](./screen.png)
+
 Global Supply Chain Tycoon (GSCT) is a high-fidelity, real-time business simulation game focused on **Global Supply Chain Management (SCM)**.
 As the CEO of a global logistics and manufacturing conglomerate, you must architect a resilient and sustainable supply chain network. Balance the complexities of multi-stage production (BOM), strategic capital investment, and the growing demand for Green Transformation (GX) to maximize your **ESG Score** over multiple years.
 
