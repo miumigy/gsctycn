@@ -18,13 +18,17 @@ graph LR
         PT[部品 Y]
     end
 
-    subgraph Logistics ["物流"]
-        Air((✈️ 航空便<br/>高速・高コスト))
-        Sea((🚢 船便<br/>低速・低コスト))
+    subgraph Inbound ["上流物流 (Inbound)"]
+        Air((✈️ 航空便))
+        Sea((🚢 船便))
     end
 
     subgraph Production ["生産"]
-        Fact[工場 / 組み立て]
+        Fact[工場 / BOM同期・組み立て]
+    end
+
+    subgraph Outbound ["下流物流 (Outbound)"]
+        Delivery((🚚/🚢/✈️ 製品配送))
     end
 
     subgraph Distribution ["市場"]
@@ -35,7 +39,8 @@ graph LR
     PT --> Air
     Sea --> Fact
     Air --> Fact
-    Fact -- "BOM同期・組み立て" --> Mkt
+    Fact --> Delivery
+    Delivery --> Mkt
 
     style RM fill:#fef,stroke:#333
     style PT fill:#fef,stroke:#333

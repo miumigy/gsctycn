@@ -18,13 +18,17 @@ graph LR
         PT[Component Y]
     end
 
-    subgraph Logistics ["Logistics"]
-        Air((✈️ Air Freight<br/>Fast/High Cost))
-        Sea((🚢 Sea Freight<br/>Slow/Low Cost))
+    subgraph Inbound ["Inbound Logistics"]
+        Air((✈️ Air Freight))
+        Sea((🚢 Sea Freight))
     end
 
     subgraph Production ["Production"]
-        Fact[Factory / Assembly]
+        Fact[Factory / BOM Sync & Assembly]
+    end
+
+    subgraph Outbound ["Outbound Logistics"]
+        Delivery((🚚/🚢/✈️ Final Delivery))
     end
 
     subgraph Distribution ["Market"]
@@ -35,7 +39,8 @@ graph LR
     PT --> Air
     Sea --> Fact
     Air --> Fact
-    Fact -- "BOM Sync & Assembly" --> Mkt
+    Fact --> Delivery
+    Delivery --> Mkt
 
     style RM fill:#fef,stroke:#333
     style PT fill:#fef,stroke:#333
