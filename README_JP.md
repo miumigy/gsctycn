@@ -10,11 +10,60 @@ Global Supply Chain Tycoon (GSCT) は、**グローバル・サプライチェ�
 
 ### 1. 多段階生産 (BOM と同期管理)
 単なる物流管理を超えた複雑性。GSCTは**部品構成表（BOM）**システムを搭載しています：
+
+```mermaid
+graph LR
+    subgraph Sourcing ["調達"]
+        RM[原材料 X]
+        PT[部品 Y]
+    end
+
+    subgraph Logistics ["物流"]
+        Air((✈️ 航空便<br/>高速・高コスト))
+        Sea((🚢 船便<br/>低速・低コスト))
+    end
+
+    subgraph Production ["生産"]
+        Fact[工場 / 組み立て]
+    end
+
+    subgraph Distribution ["市場"]
+        Mkt[グローバル市場]
+    end
+
+    RM --> Sea
+    PT --> Air
+    Sea --> Fact
+    Air --> Fact
+    Fact -- "BOM同期・組み立て" --> Mkt
+
+    style RM fill:#fef,stroke:#333
+    style PT fill:#fef,stroke:#333
+    style Fact fill:#ddf,stroke:#333
+    style Mkt fill:#dfd,stroke:#333
+```
+
 *   **アセンブリ（組み立て）:** 完成品（例：電子機器）の製造には、複数の部材（原材料や部品）を工場へ同期させて配送する必要があります。
 *   **リードタイムの同期:** 部材ごとに調達リードタイムが異なります。「ネジ一本の欠品」が組立ライン全体を停止させ、多額の損失を招くSCMの現実を再現しています。
 
 ### 2. 戦略的投資とネットワーク拡大
 グローバルな足跡をデザインし、成長させます：
+
+```mermaid
+graph TD
+    Inv[戦略的投資] --> Auto[自動化投資]
+    Inv --> QC[品質管理投資]
+    Inv --> Cap[設備拡張投資]
+
+    Auto --> Cost[加工費・原価の削減]
+    QC --> Fresh[鮮度劣化の抑制]
+    Cap --> Thr[生産・保管能力の向上]
+
+    Cost --> Profit((利益率向上))
+    Fresh --> Profit
+    Thr --> Scale((供給規模拡大))
+```
+
 *   **選択的アップグレード:** 「**自動化**（コスト削減）」、「**品質管理**（鮮度維持）」、「**設備拡張**（スループット向上）」の中から、戦略に合わせて投資先を選択します。
 *   **ROI分析:** 全てのアップグレードに対して、投資回収率（ROI）を推定する内蔵財務ツールを活用できます。
 *   **拠点の開放:** 資本を投じて新たな戦略的拠点をアンロックし、新しい航路を開設（コミッショニング）します。
@@ -44,6 +93,21 @@ Global Supply Chain Tycoon (GSCT) は、**グローバル・サプライチェ�
 
 ## ESGスコア (評価指標)
 期間終了時、以下の3つの柱で評価されます：
+
+```mermaid
+mindmap
+  root((ESGスコア))
+    Economic (経済性)
+      最終キャッシュ
+      ROI（投資効率）
+    Social (社会性)
+      サービスレベル
+      欠品防止（回復力）
+    Environmental (環境性)
+      CO2排出削減
+      グリーン投資比率
+```
+
 *   **Economic (経済性):** 最終純現金とROI効率。
 *   **Social (社会性):** 「Missed Sales（販売機会損失）」の最小化（サプライチェーンの回復力）。
 *   **Environmental (環境性):** 総CO2排出量とグリーン投資比率。

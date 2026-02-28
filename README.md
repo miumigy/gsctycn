@@ -10,11 +10,60 @@ This simulation challenges players to solve the fundamental trade-offs of modern
 
 ### 1. Multi-Stage Production (BOM & Synchronization)
 Move beyond simple logistics. GSCT features a **Bill of Materials (BOM)** system:
+
+```mermaid
+graph LR
+    subgraph Sourcing ["Sourcing"]
+        RM[Raw Material X]
+        PT[Component Y]
+    end
+
+    subgraph Logistics ["Logistics"]
+        Air((✈️ Air Freight<br/>Fast/High Cost))
+        Sea((🚢 Sea Freight<br/>Slow/Low Cost))
+    end
+
+    subgraph Production ["Production"]
+        Fact[Factory / Assembly]
+    end
+
+    subgraph Distribution ["Market"]
+        Mkt[Global Market]
+    end
+
+    RM --> Sea
+    PT --> Air
+    Sea --> Fact
+    Air --> Fact
+    Fact -- "BOM Sync & Assembly" --> Mkt
+
+    style RM fill:#fef,stroke:#333
+    style PT fill:#fef,stroke:#333
+    style Fact fill:#ddf,stroke:#333
+    style Mkt fill:#dfd,stroke:#333
+```
+
 *   **Assembly:** Finished goods (e.g., Electronics) require multiple components (e.g., Raw Materials and Parts) delivered to a factory.
 *   **Lead Time Synchronization:** Different components have different procurement lead times. A "single missing screw" will stop your entire assembly line, causing costly delays.
 
 ### 2. Strategic Investment & Network Expansion
 Design and grow your global footprint:
+
+```mermaid
+graph TD
+    Inv[Strategic Investment] --> Auto[Automation]
+    Inv --> QC[Quality Control]
+    Inv --> Cap[Capacity Expansion]
+
+    Auto --> Cost[Lower Processing Cost]
+    QC --> Fresh[Reduced Decay Rate]
+    Cap --> Thr[Increased Throughput]
+
+    Cost --> Profit((Profit Margin))
+    Fresh --> Profit
+    Thr --> Scale((Supply Scale))
+```
+
 *   **Selective Upgrades:** Choose between **Automation** (cost reduction), **Quality Control** (freshness preservation), and **Capacity Expansion** (throughput increase).
 *   **ROI Analytics:** Use built-in financial tools to estimate the Return on Investment (ROI) for every upgrade.
 *   **Hub Discovery:** Spend capital to unlock new strategic locations and commission new maritime routes.
@@ -44,6 +93,21 @@ Navigate the transition to a low-carbon economy:
 
 ## ESG Score (Evaluation)
 At the end of your term, you are evaluated on three pillars:
+
+```mermaid
+mindmap
+  root((ESG Score))
+    Economic
+      Final Net Cash
+      ROI Efficiency
+    Social
+      Service Level
+      Missed Sales Prevention
+    Environmental
+      CO2 Reduction
+      Green Investment Ratio
+```
+
 *   **Economic (Profit):** Final Net Cash and ROI efficiency.
 *   **Social (Service Level):** Minimizing "Missed Sales" (Supply Chain Resilience).
 *   **Environmental (Sustainability):** Total CO2 emissions and Green Investment ratio.
